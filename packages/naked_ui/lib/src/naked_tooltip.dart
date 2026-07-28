@@ -45,6 +45,7 @@ class NakedTooltip extends StatefulWidget {
     this.useRootOverlay = false,
     this.semanticLabel,
     this.excludeSemantics = false,
+    this.excludeOverlaySemantics,
   });
 
   /// The widget that triggers the tooltip.
@@ -98,8 +99,17 @@ class NakedTooltip extends StatefulWidget {
   /// Whether the tooltip is inserted into the root overlay.
   final bool useRootOverlay;
 
-  /// Whether to hide the trigger subtree from the semantics tree.
+  /// Whether to hide the trigger and overlay subtrees from the semantics tree.
   final bool excludeSemantics;
+
+  /// Whether to hide the visual overlay subtree from the semantics tree.
+  ///
+  /// When null, the overlay is excluded only when a non-empty [semanticLabel]
+  /// is exposed on the trigger. Set this to true to always exclude the overlay
+  /// or false to always include independently meaningful custom content.
+  ///
+  /// [excludeSemantics] takes precedence and hides the entire tooltip.
+  final bool? excludeOverlaySemantics;
 
   @override
   State<NakedTooltip> createState() {
@@ -371,6 +381,13 @@ class _NakedTooltipState extends State<NakedTooltip>
 
   Widget _buildOverlay(BuildContext context, RawMenuOverlayInfo info) {
     Widget result = widget.overlayBuilder(context, _animation);
+    final excludeOverlaySemantics =
+        widget.excludeSemantics ||
+        (widget.excludeOverlaySemantics ??
+            (widget.semanticLabel?.trim().isNotEmpty ?? false));
+    if (excludeOverlaySemantics) {
+      result = ExcludeSemantics(child: result);
+    }
     result = MouseRegion(
       opaque: false,
       onEnter: _handleContentEnter,

@@ -1,22 +1,25 @@
+import 'dart:ui' show SemanticsAction, Tristate;
+
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:naked_ui/naked_ui.dart';
 
 import 'semantics_test_utils.dart';
+
+List<SemanticsNode> _nodesWithLabel(WidgetTester tester, String label) {
+  return tester.semantics
+      .simulatedAccessibilityTraversal()
+      .where((node) => node.getSemanticsData().label == label)
+      .toList();
+}
 
 void main() {
   Widget _buildTestApp(Widget child) {
     return MaterialApp(
       home: Scaffold(body: Center(child: child)),
     );
-  }
-
-  Widget _buildMaterialTooltip({
-    required String message,
-    required String child,
-  }) {
-    return Tooltip(message: message, child: Text(child));
   }
 
   Widget _buildNakedTooltip({required String message, required String child}) {
@@ -94,38 +97,213 @@ void main() {
       handle.dispose();
     });
 
-    testWidgets('tooltip hover behavior semantics', (tester) async {
+    testWidgets('keeps one unchanged trigger node through hover lifecycle', (
+      tester,
+    ) async {
       final handle = tester.ensureSemantics();
       final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
       await mouse.addPointer();
-      await tester.pump();
+      const label = 'Filter chats';
 
-      await tester.pumpWidget(
-        _buildTestApp(
-          _buildMaterialTooltip(message: 'Hover tooltip', child: 'Hover me'),
-        ),
+      try {
+        await tester.pumpWidget(
+          _buildTestApp(
+            NakedTooltip(
+              semanticLabel: label,
+              hoverDelay: Duration.zero,
+              dismissDelay: Duration.zero,
+              animationStyle: AnimationStyle.noAnimation,
+              overlayBuilder: (context, animation) => const Text(label),
+              child: NakedButton(
+                key: const Key('naked-trigger'),
+                semanticLabel: label,
+                onPressed: () {},
+                child: const SizedBox.square(dimension: 40),
+              ),
+            ),
+          ),
+        );
+        final closedTrigger = summarizeMergedFromRoot(
+          tester,
+          control: ControlType.button,
+        );
+        final labelCounts = <int>[_nodesWithLabel(tester, label).length];
+        final triggerStates = <SemanticsSummary>[closedTrigger];
+
+        await mouse.moveTo(
+          tester.getCenter(find.byKey(const Key('naked-trigger'))),
+        );
+        await tester.pumpAndSettle();
+
+        final openNodes = _nodesWithLabel(tester, label);
+        labelCounts.add(openNodes.length);
+        final data = openNodes.single.getSemanticsData();
+        expect(data.tooltip, label);
+        expect(data.flagsCollection.isButton, isTrue);
+        expect(data.flagsCollection.isEnabled, Tristate.isTrue);
+        expect(data.flagsCollection.isFocused, isNot(Tristate.none));
+        expect(data.hasAction(SemanticsAction.tap), isTrue);
+        triggerStates.add(
+          summarizeMergedFromRoot(tester, control: ControlType.button),
+        );
+
+        await mouse.moveTo(const Offset(-1000, -1000));
+        await tester.pumpAndSettle();
+        labelCounts.add(_nodesWithLabel(tester, label).length);
+        triggerStates.add(
+          summarizeMergedFromRoot(tester, control: ControlType.button),
+        );
+
+        expect(labelCounts, [1, 1, 1]);
+        expect(triggerStates, everyElement(closedTrigger));
+      } finally {
+        await mouse.removePointer();
+        handle.dispose();
+      }
+    });
+
+    testWidgets('can include meaningful custom overlay semantics', (
+      tester,
+    ) async {
+      final handle = tester.ensureSemantics();
+
+      try {
+        await tester.pumpWidget(
+          _buildTestApp(
+            NakedTooltip(
+              open: true,
+              semanticLabel: 'Show connection help',
+              excludeOverlaySemantics: false,
+              animationStyle: AnimationStyle.noAnimation,
+              overlayBuilder: (context, animation) => Semantics(
+                label: 'Connection status',
+                child: const ExcludeSemantics(child: Text('Connected')),
+              ),
+              child: NakedButton(
+                key: const Key('custom-overlay-trigger'),
+                semanticLabel: 'Show status',
+                onPressed: () {},
+                child: const SizedBox.square(dimension: 40),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        final trigger = _nodesWithLabel(tester, 'Show status').single;
+        final overlay = _nodesWithLabel(tester, 'Connection status').single;
+
+        expect(trigger.getSemanticsData().tooltip, 'Show connection help');
+        expect(
+          trigger.getSemanticsData().hasAction(SemanticsAction.tap),
+          isTrue,
+        );
+        expect(overlay.getSemanticsData().label, 'Connection status');
+        expect(find.text('Connected'), findsOneWidget);
+      } finally {
+        handle.dispose();
+      }
+    });
+
+    for (final (description, semanticLabel) in <(String, String?)>[
+      ('omitted', null),
+      ('blank', '   '),
+    ]) {
+      testWidgets(
+        'keeps overlay semantics when the trigger tooltip label is $description',
+        (tester) async {
+          final handle = tester.ensureSemantics();
+
+          try {
+            await tester.pumpWidget(
+              _buildTestApp(
+                NakedTooltip(
+                  open: true,
+                  semanticLabel: semanticLabel,
+                  animationStyle: AnimationStyle.noAnimation,
+                  overlayBuilder: (context, animation) =>
+                      const Text('Connection status'),
+                  child: NakedButton(
+                    semanticLabel: 'Show status',
+                    onPressed: () {},
+                    child: const SizedBox.square(dimension: 40),
+                  ),
+                ),
+              ),
+            );
+            await tester.pumpAndSettle();
+
+            final trigger = _nodesWithLabel(tester, 'Show status').single;
+            expect(trigger.getSemanticsData().tooltip.trim(), isEmpty);
+            expect(_nodesWithLabel(tester, 'Connection status'), hasLength(1));
+          } finally {
+            handle.dispose();
+          }
+        },
       );
+    }
 
-      await mouse.moveTo(tester.getCenter(find.text('Hover me')));
-      await tester.pump();
-      await tester.pump(const Duration(seconds: 1));
+    testWidgets('can explicitly exclude an unlabeled overlay', (tester) async {
+      final handle = tester.ensureSemantics();
 
-      expect(find.text('Hover tooltip'), findsOneWidget);
+      try {
+        await tester.pumpWidget(
+          _buildTestApp(
+            NakedTooltip(
+              open: true,
+              excludeOverlaySemantics: true,
+              animationStyle: AnimationStyle.noAnimation,
+              overlayBuilder: (context, animation) =>
+                  const Text('Connection status'),
+              child: NakedButton(
+                semanticLabel: 'Show status',
+                onPressed: () {},
+                child: const SizedBox.square(dimension: 40),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
 
-      await tester.pumpWidget(
-        _buildTestApp(
-          _buildNakedTooltip(message: 'Hover tooltip', child: 'Hover me'),
-        ),
-      );
+        expect(_nodesWithLabel(tester, 'Show status'), hasLength(1));
+        expect(_nodesWithLabel(tester, 'Connection status'), isEmpty);
+      } finally {
+        handle.dispose();
+      }
+    });
 
-      await mouse.moveTo(tester.getCenter(find.text('Hover me')));
-      await tester.pump();
-      await tester.pump(const Duration(seconds: 1));
+    testWidgets('excludeSemantics overrides explicit overlay inclusion', (
+      tester,
+    ) async {
+      final handle = tester.ensureSemantics();
 
-      expect(find.text('Hover me'), findsOneWidget);
+      try {
+        await tester.pumpWidget(
+          _buildTestApp(
+            NakedTooltip(
+              open: true,
+              semanticLabel: 'Show connection help',
+              excludeSemantics: true,
+              excludeOverlaySemantics: false,
+              useRootOverlay: true,
+              animationStyle: AnimationStyle.noAnimation,
+              overlayBuilder: (context, animation) =>
+                  const Text('Connection status'),
+              child: NakedButton(
+                semanticLabel: 'Show status',
+                onPressed: () {},
+                child: const SizedBox.square(dimension: 40),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
 
-      await mouse.removePointer();
-      handle.dispose();
+        expect(_nodesWithLabel(tester, 'Show status'), isEmpty);
+        expect(_nodesWithLabel(tester, 'Connection status'), isEmpty);
+      } finally {
+        handle.dispose();
+      }
     });
 
     testWidgets('semantics label accessibility', (tester) async {
