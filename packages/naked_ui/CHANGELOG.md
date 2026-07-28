@@ -1,3 +1,12 @@
+## 1.0.0-beta.8
+
+### Fixes
+
+- Preserve tooltip overlay semantics when `semanticLabel` is absent or blank,
+  while continuing to avoid duplicate announcements when a non-empty label
+  represents the content on the trigger. Explicit semantics overrides remain
+  authoritative.
+
 ## 1.0.0-beta.7
 
 ### Features
