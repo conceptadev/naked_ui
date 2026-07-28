@@ -80,7 +80,7 @@ const NakedTooltip({
   this.positioning = const OverlayPositionConfig(),
   this.semanticLabel,
   this.excludeSemantics = false,
-  this.excludeOverlaySemantics = true,
+  this.excludeOverlaySemantics,
 })
 ```
 
@@ -96,8 +96,8 @@ const NakedTooltip({
 - `animationStyle` → customize animation duration, curve, and reverse behavior
 - `onTriggered` → called when triggered by tap or long press (not hover)
 - `semanticLabel` → text announced by assistive technologies
-- `excludeSemantics` → hide the trigger and its tooltip description from accessibility services
-- `excludeOverlaySemantics` → hide the visual overlay subtree from accessibility services (default: true); set false for independently meaningful custom content
+- `excludeSemantics` → hide the trigger, tooltip description, and visual overlay subtree from accessibility services
+- `excludeOverlaySemantics` → control the visual overlay subtree independently; by default it is hidden when a non-empty `semanticLabel` describes the tooltip on the trigger, and retained otherwise
 
 ## Behaviour Notes
 
@@ -107,7 +107,7 @@ const NakedTooltip({
 - Use `AnimationStyle.noAnimation` to disable the built-in transition
 - The tooltip dismisses on outside tap (controllable via `enableTapToDismiss`)
 - Only one tooltip is shown at a time when using nested tooltips
-- Visual overlay content is semantics-excluded by default; use `semanticLabel` to describe it on the trigger
+- Visual overlay content is semantics-excluded automatically when a non-empty `semanticLabel` describes it on the trigger; set `excludeOverlaySemantics` explicitly to override this behavior
 
 ## Positioning Tips
 

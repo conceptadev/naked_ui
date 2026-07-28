@@ -205,6 +205,107 @@ void main() {
       }
     });
 
+    for (final (description, semanticLabel) in <(String, String?)>[
+      ('omitted', null),
+      ('blank', '   '),
+    ]) {
+      testWidgets(
+        'keeps overlay semantics when the trigger tooltip label is $description',
+        (tester) async {
+          final handle = tester.ensureSemantics();
+
+          try {
+            await tester.pumpWidget(
+              _buildTestApp(
+                NakedTooltip(
+                  open: true,
+                  semanticLabel: semanticLabel,
+                  animationStyle: AnimationStyle.noAnimation,
+                  overlayBuilder: (context, animation) =>
+                      const Text('Connection status'),
+                  child: NakedButton(
+                    semanticLabel: 'Show status',
+                    onPressed: () {},
+                    child: const SizedBox.square(dimension: 40),
+                  ),
+                ),
+              ),
+            );
+            await tester.pumpAndSettle();
+
+            final trigger = _nodesWithLabel(tester, 'Show status').single;
+            expect(trigger.getSemanticsData().tooltip.trim(), isEmpty);
+            expect(_nodesWithLabel(tester, 'Connection status'), hasLength(1));
+          } finally {
+            handle.dispose();
+          }
+        },
+      );
+    }
+
+    testWidgets('can explicitly exclude an unlabeled overlay', (tester) async {
+      final handle = tester.ensureSemantics();
+
+      try {
+        await tester.pumpWidget(
+          _buildTestApp(
+            NakedTooltip(
+              open: true,
+              excludeOverlaySemantics: true,
+              animationStyle: AnimationStyle.noAnimation,
+              overlayBuilder: (context, animation) =>
+                  const Text('Connection status'),
+              child: NakedButton(
+                semanticLabel: 'Show status',
+                onPressed: () {},
+                child: const SizedBox.square(dimension: 40),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(_nodesWithLabel(tester, 'Show status'), hasLength(1));
+        expect(_nodesWithLabel(tester, 'Connection status'), isEmpty);
+      } finally {
+        handle.dispose();
+      }
+    });
+
+    testWidgets('excludeSemantics overrides explicit overlay inclusion', (
+      tester,
+    ) async {
+      final handle = tester.ensureSemantics();
+
+      try {
+        await tester.pumpWidget(
+          _buildTestApp(
+            NakedTooltip(
+              open: true,
+              semanticLabel: 'Show connection help',
+              excludeSemantics: true,
+              excludeOverlaySemantics: false,
+              useRootOverlay: true,
+              animationStyle: AnimationStyle.noAnimation,
+              overlayBuilder: (context, animation) =>
+                  const Text('Connection status'),
+              child: NakedButton(
+                semanticLabel: 'Show status',
+                onPressed: () {},
+                child: const SizedBox.square(dimension: 40),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(_nodesWithLabel(tester, 'Show status'), isEmpty);
+        expect(_nodesWithLabel(tester, 'Connection status'), isEmpty);
+      } finally {
+        handle.dispose();
+      }
+    });
+
     testWidgets('semantics label accessibility', (tester) async {
       final handle = tester.ensureSemantics();
 
