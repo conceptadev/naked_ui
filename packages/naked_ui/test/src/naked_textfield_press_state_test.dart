@@ -291,6 +291,55 @@ void main() {
     expect(states, isNot(contains(WidgetState.pressed)));
   });
 
+  testWidgets('removing a pressed field does not notify during teardown', (
+    tester,
+  ) async {
+    final controller = TextEditingController(text: 'Remove while pressed');
+    final changes = _PressChanges();
+    var showField = true;
+    var callbackRebuilds = 0;
+    late StateSetter setHostState;
+    addTearDown(controller.dispose);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: StatefulBuilder(
+          builder: (context, setState) {
+            setHostState = setState;
+            return showField
+                ? NakedTextField(
+                    controller: controller,
+                    onTapChange: changes.tap.add,
+                    onPressChange: (pressed) {
+                      changes.aggregate.add(pressed);
+                      if (!pressed) {
+                        setHostState(() => callbackRebuilds++);
+                      }
+                    },
+                    builder: (context, state, editable) => editable,
+                  )
+                : const SizedBox();
+          },
+        ),
+      ),
+    );
+
+    final gesture = await tester.startGesture(
+      tester.getCenter(find.byType(EditableText)),
+    );
+    await tester.pump(kPressTimeout);
+    changes.expectBoth([true]);
+
+    setHostState(() => showField = false);
+    await tester.pump();
+
+    expect(tester.takeException(), isNull);
+    changes.expectBoth([true]);
+    expect(callbackRebuilds, 0);
+
+    await gesture.up();
+  });
+
   testWidgets(
     'disabled pointer gestures do not select or focus the field',
     (tester) async {

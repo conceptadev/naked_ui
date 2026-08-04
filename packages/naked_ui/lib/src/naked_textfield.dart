@@ -500,10 +500,32 @@ class _NakedTextFieldState extends State<NakedTextField>
     updateFocusState(focused, widget.onFocusChange);
   }
 
+  var _pressEpoch = 0;
+
   void _handlePressChange(bool pressed) {
+    if (isPressed == pressed) return;
+    _pressEpoch++;
     updatePressState(pressed, (value) {
       widget.onTapChange?.call(value);
       widget.onPressChange?.call(value);
+    });
+  }
+
+  void _handlePressReset() {
+    if (!isPressed) return;
+    final epoch = ++_pressEpoch;
+    updatePressState(false, null);
+
+    final tapCallback = widget.onTapChange;
+    final pressCallback = widget.onPressChange;
+    if (tapCallback == null && pressCallback == null) return;
+
+    // Tap tracking also resets when its recognizer is disposed during teardown.
+    // Defer consumer callbacks so rebuilds are safe and skip them after unmount.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _pressEpoch != epoch || isPressed) return;
+      tapCallback?.call(false);
+      pressCallback?.call(false);
     });
   }
 
@@ -977,7 +999,7 @@ class _NakedSelectionGestureDetectorBuilder
   void onTapTrackReset() {
     super.onTapTrackReset();
     if (!_state.widget.enabled) return;
-    _state._handlePressChange(false);
+    _state._handlePressReset();
   }
 
   @override
