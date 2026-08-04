@@ -316,7 +316,7 @@ void main() {
           final summary = summarizeNode(option);
           expect(summary.flags, isNot(contains('hasToggledState')));
           expect(summary.flags, isNot(contains('hasCheckedState')));
-          expect(summary.flags, isNot(contains('isInMutuallyExclusiveGroup')));
+          expect(summary.flags, contains('isInMutuallyExclusiveGroup'));
         }
 
         handle.dispose();
@@ -356,6 +356,7 @@ void main() {
         )!;
         final data = italic.getSemanticsData();
         expect(data.flagsCollection.isButton, isTrue);
+        expect(data.flagsCollection.isInMutuallyExclusiveGroup, isTrue);
         expect(data.flagsCollection.isEnabled, Tristate.isFalse);
         expect(data.hasAction(SemanticsAction.tap), isFalse);
 
