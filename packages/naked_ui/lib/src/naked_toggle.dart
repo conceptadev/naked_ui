@@ -1095,6 +1095,7 @@ class _NakedToggleOptionState<T> extends State<NakedToggleOption<T>>
             enabled: isEnabled,
             selected: isSelected,
             button: true,
+            inMutuallyExclusiveGroup: true,
             label: widget.semanticLabel,
             onTap: isEnabled ? () => _activate(scope) : null,
             child: gestureDetector,

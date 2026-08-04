@@ -501,7 +501,29 @@ class _NakedTextFieldState extends State<NakedTextField>
   }
 
   void _handlePressChange(bool pressed) {
-    updatePressState(pressed, widget.onPressChange);
+    updatePressState(pressed, (value) {
+      widget.onTapChange?.call(value);
+      widget.onPressChange?.call(value);
+    });
+  }
+
+  var _enabledEpoch = 0;
+
+  void _handleEnabledChange(NakedTextField oldWidget) {
+    if (oldWidget.enabled == widget.enabled) return;
+    final epoch = ++_enabledEpoch;
+    if (widget.enabled || !updatePressState(false, null)) return;
+
+    final tapCallback = widget.onTapChange;
+    final pressCallback = widget.onPressChange;
+    if (tapCallback == null && pressCallback == null) return;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _enabledEpoch == epoch && !widget.enabled && isDisabled) {
+        tapCallback?.call(false);
+        pressCallback?.call(false);
+      }
+    });
   }
 
   bool _shouldShowSelectionHandles(SelectionChangedCause? cause) {
@@ -589,6 +611,7 @@ class _NakedTextFieldState extends State<NakedTextField>
 
     updateDisabledState(!widget.enabled);
     updateErrorState(widget.error);
+    _handleEnabledChange(oldWidget);
 
     if (widget.controller == null && oldWidget.controller != null) {
       _createLocalController(oldWidget.controller!.value);
@@ -662,7 +685,8 @@ class _NakedTextFieldState extends State<NakedTextField>
   late bool forcePressEnabled;
 
   @override
-  bool get selectionEnabled => widget.enableInteractiveSelection;
+  bool get selectionEnabled =>
+      widget.enabled && widget.enableInteractiveSelection;
 
   EditableTextState? get _editableText => editableTextKey.currentState;
 
@@ -944,17 +968,55 @@ class _NakedSelectionGestureDetectorBuilder
 
   @override
   void onTapDown(TapDragDownDetails details) {
-    super.onTapDown(details);
     if (!_state.widget.enabled) return;
-    _state.widget.onTapChange?.call(true);
+    super.onTapDown(details);
     _state._handlePressChange(true);
   }
 
   @override
-  void onSingleTapUp(TapDragUpDetails details) {
-    super.onSingleTapUp(details);
+  void onTapTrackReset() {
+    super.onTapTrackReset();
     if (!_state.widget.enabled) return;
-    _state.widget.onTapChange?.call(false);
+    _state._handlePressChange(false);
+  }
+
+  @override
+  void onForcePressStart(ForcePressDetails details) {
+    if (!_state.widget.enabled) return;
+    super.onForcePressStart(details);
+  }
+
+  @override
+  void onForcePressEnd(ForcePressDetails details) {
+    if (!_state.widget.enabled) return;
+    super.onForcePressEnd(details);
+  }
+
+  @override
+  void onDoubleTapDown(TapDragDownDetails details) {
+    if (!_state.widget.enabled) return;
+    super.onDoubleTapDown(details);
+    _state._handlePressChange(false);
+  }
+
+  @override
+  void onTripleTapDown(TapDragDownDetails details) {
+    if (!_state.widget.enabled) return;
+    super.onTripleTapDown(details);
+    _state._handlePressChange(false);
+  }
+
+  @override
+  void onDragSelectionStart(TapDragStartDetails details) {
+    if (!_state.widget.enabled) return;
+    super.onDragSelectionStart(details);
+    _state._handlePressChange(false);
+  }
+
+  @override
+  void onSingleTapUp(TapDragUpDetails details) {
+    if (!_state.widget.enabled) return;
+    super.onSingleTapUp(details);
     _state._handlePressChange(false);
   }
 
@@ -962,7 +1024,6 @@ class _NakedSelectionGestureDetectorBuilder
   void onSingleTapCancel() {
     super.onSingleTapCancel();
     if (!_state.widget.enabled) return;
-    _state.widget.onTapChange?.call(false);
     _state._handlePressChange(false);
   }
 
