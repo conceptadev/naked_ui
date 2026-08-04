@@ -1,3 +1,15 @@
+## 1.0.0-beta.9
+
+### Fixes
+
+- Keep `NakedTextField`'s `WidgetState.pressed`, `onTapChange`, and
+  `onPressChange` synchronized when selection gestures take over; block
+  disabled pointer and selection paths, and defer lifecycle cleanup callbacks
+  to avoid rebuilding while the widget tree is locked.
+- Mark `NakedToggleOption` semantics as part of a mutually exclusive group,
+  matching Flutter's segmented-control contract for enabled, selected, and
+  disabled options.
+
 ## 1.0.0-beta.8
 
 ### Fixes
