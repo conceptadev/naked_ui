@@ -150,11 +150,52 @@ class _AccordionSectionState extends State<_AccordionSection> {
 
 Use these values to adjust affordances (e.g. disable icons when the controller prevents expansion).
 
+### Styling the complete item
+
+Use `itemBuilder` when a style applies to the trigger and panel as one unit.
+Its child is the fully assembled interactive trigger followed by the
+transitioned panel, and its context exposes the same authoritative item state
+controller used by both descendants.
+
+```dart
+NakedAccordion<String>(
+  value: 'details',
+  builder: (context, state) => Text(
+    state.isExpanded ? 'Hide details' : 'Show details',
+  ),
+  itemBuilder: (context, _, child) {
+    final states =
+        NakedAccordionItemState.controllerOf<String>(context);
+
+    return ListenableBuilder(
+      listenable: states,
+      builder: (context, _) => DecoratedBox(
+        decoration: BoxDecoration(
+          border: Border.all(
+            color: states.value.contains(WidgetState.focused)
+                ? Colors.blue
+                : Colors.grey,
+          ),
+        ),
+        child: child,
+      ),
+    );
+  },
+  child: const Text('Detailed content'),
+);
+```
+
+Keep the supplied child in the returned subtree. It retains Naked UI's
+pointer, keyboard, focus, transition, panel-visibility, and semantics behavior.
+Read the scoped controller directly instead of mirroring interaction state in
+a separate controller.
+
 ### Access from Context
 
 - `NakedAccordionGroupState.of(context)` / `maybeOf(context)` → read the nearest group state
 - `NakedAccordionItemState.of<T>(context)` / `maybeOf<T>(context)` → read the nearest item state
 - `NakedAccordionGroupState.controllerOf(context)` / `maybeControllerOf(context)` → access the shared `WidgetStatesController` for observers outside builders
+- `NakedAccordionItemState.controllerOf<T>(context)` / `maybeControllerOf<T>(context)` → access the authoritative controller shared by an item's trigger, panel, and `itemBuilder`
 
 ## Controller Behaviour
 
@@ -192,6 +233,7 @@ const NakedAccordion({
   required this.builder,        // Recommended approach
   required this.value,
   required this.child,
+  this.itemBuilder,
   this.transitionBuilder,
   this.enabled = true,
   this.mouseCursor = SystemMouseCursors.click,
@@ -209,6 +251,7 @@ const NakedAccordion({
 - `builder` → `NakedAccordionTriggerBuilder<T>` receiving `NakedAccordionItemState<T>`
 - `child` → panel content displayed when expanded
 - `value` → unique identifier tracked by the controller
+- `itemBuilder` → optional state-aware wrapper around the complete trigger and panel
 - interaction callbacks: `onFocusChange`, `onHoverChange`, `onPressChange`
 - `transitionBuilder` lets you wrap the panel with your own show/hide animation
 - `enabled` / `mouseCursor` / `enableFeedback` provide interaction affordance hooks

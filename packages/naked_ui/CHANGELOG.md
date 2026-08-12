@@ -1,3 +1,11 @@
+## Unreleased
+
+### Features
+
+- Add `NakedAccordion.itemBuilder` for decorating the fully assembled trigger
+  and panel from one authoritative item state scope. Accordion pressed state is
+  now observable without an `onPressChange` callback and clears when disabled.
+
 ## 1.0.0-beta.9
 
 ### Fixes
