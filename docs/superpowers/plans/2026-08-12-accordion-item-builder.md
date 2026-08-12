@@ -367,6 +367,7 @@ git commit -m "feat(accordion): add whole-item builder"
 
 **Files:**
 - Modify: `docs/widget/accordion.mdx`
+- Modify: `packages/naked_ui/CHANGELOG.md`
 
 **Interfaces:**
 - Consumes: `NakedAccordion.itemBuilder` from Task 1.
@@ -399,12 +400,17 @@ Explain that the supplied child retains Naked UI's trigger behavior, transition,
 
 - [ ] **Step 2: Check documentation formatting and links**
 
+Add a `### Features` entry under `1.0.0-beta.9` stating that
+`NakedAccordion.itemBuilder` decorates the fully assembled item from one
+authoritative item state scope and that pressed state is observable without an
+`onPressChange` callback.
+
 Run `git diff --check` and inspect `git diff -- docs/widget/accordion.mdx`. Expected: no whitespace errors and all referenced APIs match Task 1.
 
 - [ ] **Step 3: Commit documentation**
 
 ```bash
-git add docs/widget/accordion.mdx
+git add docs/widget/accordion.mdx packages/naked_ui/CHANGELOG.md
 git commit -m "docs(accordion): explain whole-item styling"
 ```
 
