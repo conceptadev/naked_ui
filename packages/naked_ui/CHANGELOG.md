@@ -1,3 +1,20 @@
+## 1.0.0-beta.10
+
+### Features
+
+- Add `NakedAccordion.itemBuilder` for styling a trigger and panel as one unit.
+  It receives the same `NakedAccordionItemState` as the trigger builder plus the
+  fully assembled item as its child, and its context resolves
+  `NakedAccordionItemState.controllerOf` to the authoritative controller shared
+  with the trigger and panel.
+
+### Fixes
+
+- Track `NakedAccordion` press state whenever the item is enabled instead of
+  only when `onPressChange` is supplied, so `WidgetState.pressed` reaches
+  builders without a callback, and clear the pressed state when the item
+  becomes disabled.
+
 ## 1.0.0-beta.9
 
 ### Fixes
