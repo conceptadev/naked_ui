@@ -95,7 +95,7 @@ class NakedAccordionGroupState extends NakedState {
   );
 }
 
-/// Immutable state exposed to a [NakedAccordion] trigger builder.
+/// Immutable state exposed to [NakedAccordion] builders.
 class NakedAccordionItemState<T> extends NakedState {
   /// The item's unique identifier.
   final T value;
@@ -412,6 +412,8 @@ typedef NakedAccordionTriggerBuilder<T> =
 ///
 /// The [builder] receives a [NakedAccordionItemState] that includes
 /// expansion status, constraint affordances, and interaction states.
+/// The optional [itemBuilder] receives the same state around the fully
+/// assembled trigger and panel.
 ///
 /// See also:
 /// - [NakedAccordionGroup], the container that manages accordion items.
