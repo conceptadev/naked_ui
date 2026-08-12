@@ -219,8 +219,17 @@ void main() {
       late StateSetter rebuild;
       NakedAccordionItemState<String>? latestState;
       WidgetStatesController? itemStates;
+      WidgetStatesController? observedController;
+      var controllerNotifications = 0;
+      final resolvedControllers = <WidgetStatesController>{};
       final controller = NakedAccordionController<String>();
       addTearDown(controller.dispose);
+
+      void countControllerNotification() => controllerNotifications++;
+
+      addTearDown(() {
+        observedController?.removeListener(countControllerNotification);
+      });
 
       await tester.pumpMaterialWidget(
         StatefulBuilder(
@@ -239,9 +248,14 @@ void main() {
                 ),
                 itemBuilder: (context, state, child) {
                   latestState = state;
-                  itemStates = NakedAccordionItemState.controllerOf<String>(
-                    context,
-                  );
+                  final scopedController =
+                      NakedAccordionItemState.controllerOf<String>(context);
+                  itemStates = scopedController;
+                  resolvedControllers.add(scopedController);
+                  if (observedController == null) {
+                    observedController = scopedController;
+                    scopedController.addListener(countControllerNotification);
+                  }
                   return child!;
                 },
                 child: const Text('Panel'),
@@ -257,7 +271,10 @@ void main() {
       await mouse.moveTo(tester.getCenter(find.byKey(const Key('trigger'))));
       await tester.pump();
       expect(latestState!.isHovered, isTrue);
+      expect(controllerNotifications, greaterThan(0));
+      expect(resolvedControllers, hasLength(1));
 
+      final notificationsBeforeDisable = controllerNotifications;
       rebuild(() => enabled = false);
       await tester.pump();
       expect(latestState!.isHovered, isTrue);
@@ -266,13 +283,18 @@ void main() {
         itemStates!.value,
         containsAll(<WidgetState>{WidgetState.hovered, WidgetState.disabled}),
       );
+      expect(controllerNotifications, greaterThan(notificationsBeforeDisable));
+      expect(resolvedControllers, hasLength(1));
 
+      final notificationsBeforeEnable = controllerNotifications;
       rebuild(() => enabled = true);
       await tester.pump();
       expect(latestState!.isHovered, isTrue);
       expect(latestState!.isDisabled, isFalse);
       expect(itemStates!.value, contains(WidgetState.hovered));
       expect(itemStates!.value, isNot(contains(WidgetState.disabled)));
+      expect(controllerNotifications, greaterThan(notificationsBeforeEnable));
+      expect(resolvedControllers, hasLength(1));
     });
 
     testWidgets('reports pressed state without requiring a callback', (
