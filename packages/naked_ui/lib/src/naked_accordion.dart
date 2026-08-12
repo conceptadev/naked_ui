@@ -551,9 +551,9 @@ class _NakedAccordionState<T> extends State<NakedAccordion<T>>
       canExpand: canExpand,
     );
 
-    final result = NakedStateScopeBuilder<NakedAccordionItemState<T>>(
+    final scopedItem = NakedStateScopeBuilder<NakedAccordionItemState<T>>(
       value: accordionState,
-      builder: (context, accordionState, child) {
+      builder: (context, accordionState, _) {
         final trigger = widget.builder(context, accordionState);
         final bool excludeTriggerSemantics =
             widget.excludeSemantics || widget.semanticLabel != null;
@@ -576,7 +576,7 @@ class _NakedAccordionState<T> extends State<NakedAccordion<T>>
               : trigger,
         );
 
-        final accordionChild = widget.excludeSemantics
+        final semanticTrigger = widget.excludeSemantics
             ? triggerContent
             : Semantics(
                 enabled: widget.enabled,
@@ -590,27 +590,34 @@ class _NakedAccordionState<T> extends State<NakedAccordion<T>>
         final focusableTrigger = NakedFocusableDetector(
           enabled: widget.enabled,
           autofocus: widget.autofocus,
-          onFocusChange: (f) => updateFocusState(f, widget.onFocusChange),
-          onHoverChange: (h) => updateHoverState(h, widget.onHoverChange),
+          onFocusChange: (focused) =>
+              updateFocusState(focused, widget.onFocusChange),
+          onHoverChange: (hovered) =>
+              updateHoverState(hovered, widget.onHoverChange),
           focusNode: widget.focusNode,
           mouseCursor: widget.enabled
               ? widget.mouseCursor
               : SystemMouseCursors.basic,
           shortcuts: NakedIntentActions.accordion.shortcuts,
           actions: NakedIntentActions.accordion.actions(onToggle: onTap),
-          child: accordionChild,
+          child: semanticTrigger,
         );
         final transitionedPanel =
             widget.transitionBuilder?.call(panel) ?? panel;
-        final item = Column(
+        final assembledItem = Column(
           mainAxisSize: MainAxisSize.min,
           children: [focusableTrigger, transitionedPanel],
         );
 
-        return widget.itemBuilder?.call(context, accordionState, item) ?? item;
+        final itemBuilder = widget.itemBuilder;
+        return itemBuilder == null
+            ? assembledItem
+            : itemBuilder(context, accordionState, assembledItem);
       },
     );
 
-    return widget.excludeSemantics ? ExcludeSemantics(child: result) : result;
+    return widget.excludeSemantics
+        ? ExcludeSemantics(child: scopedItem)
+        : scopedItem;
   }
 }
