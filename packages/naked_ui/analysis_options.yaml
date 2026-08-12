@@ -53,6 +53,19 @@ dart_code_metrics:
     avoid-empty-setstate: false
     
 analyzer:
+  # Flutter's AnalysisOptionsMigration (flutter_tools) rewrites this file during
+  # `flutter pub get` unless `analyzer.exclude` already lists every one of these
+  # seven patterns verbatim. That rewrite dirties the working tree, which makes
+  # `dart pub publish` fail with "checked-in file is modified in git" (exit 65).
+  # Keep this list exact and complete; do not prune or reformat the entries.
+  exclude:
+    - build/**
+    - android/**
+    - ios/**
+    - web/**
+    - windows/**
+    - macos/**
+    - linux/**
   errors:
     non_constant_identifier_names: ignore
 
