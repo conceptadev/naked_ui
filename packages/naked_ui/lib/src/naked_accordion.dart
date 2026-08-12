@@ -422,6 +422,7 @@ class NakedAccordion<T> extends StatefulWidget {
     required this.builder,
     required this.value,
     required this.child,
+    this.itemBuilder,
     this.transitionBuilder,
     this.enabled = true,
     this.mouseCursor = SystemMouseCursors.click,
@@ -437,6 +438,13 @@ class NakedAccordion<T> extends StatefulWidget {
 
   /// Builds the header or trigger for the item.
   final NakedAccordionTriggerBuilder<T> builder;
+
+  /// Builds a presentation wrapper around the fully assembled item.
+  ///
+  /// The supplied child contains the interactive trigger followed by the
+  /// transitioned panel. The callback context is below the item state scope,
+  /// so it can access [NakedAccordionItemState.controllerOf].
+  final ValueWidgetBuilder<NakedAccordionItemState<T>>? itemBuilder;
 
   /// Optional transition builder applied to the expanding panel.
   final Widget Function(Widget panel)? transitionBuilder;
@@ -498,6 +506,9 @@ class _NakedAccordionState<T> extends State<NakedAccordion<T>>
     super.didUpdateWidget(oldWidget);
     if (oldWidget.enabled != widget.enabled) {
       updateDisabledState(!widget.enabled);
+      if (!widget.enabled) {
+        updatePressState(false, widget.onPressChange);
+      }
     }
   }
 
@@ -540,48 +551,43 @@ class _NakedAccordionState<T> extends State<NakedAccordion<T>>
       canExpand: canExpand,
     );
 
-    final Widget trigger = NakedStateScopeBuilder(
+    final result = NakedStateScopeBuilder<NakedAccordionItemState<T>>(
       value: accordionState,
-      builder: (context, accordionState, child) =>
-          widget.builder(context, accordionState),
-    );
+      builder: (context, accordionState, child) {
+        final trigger = widget.builder(context, accordionState);
+        final bool excludeTriggerSemantics =
+            widget.excludeSemantics || widget.semanticLabel != null;
 
-    final bool excludeTriggerSemantics =
-        widget.excludeSemantics || widget.semanticLabel != null;
+        final triggerContent = GestureDetector(
+          onTapDown: widget.enabled
+              ? (_) => updatePressState(true, widget.onPressChange)
+              : null,
+          onTapUp: widget.enabled
+              ? (_) => updatePressState(false, widget.onPressChange)
+              : null,
+          onTap: widget.enabled ? onTap : null,
+          onTapCancel: widget.enabled
+              ? () => updatePressState(false, widget.onPressChange)
+              : null,
+          behavior: HitTestBehavior.opaque,
+          excludeFromSemantics: true,
+          child: excludeTriggerSemantics
+              ? ExcludeSemantics(child: trigger)
+              : trigger,
+        );
 
-    Widget triggerContent = GestureDetector(
-      onTapDown: (widget.enabled && widget.onPressChange != null)
-          ? (_) => updatePressState(true, widget.onPressChange)
-          : null,
-      onTapUp: (widget.enabled && widget.onPressChange != null)
-          ? (_) => updatePressState(false, widget.onPressChange)
-          : null,
-      onTap: widget.enabled ? onTap : null,
-      onTapCancel: (widget.enabled && widget.onPressChange != null)
-          ? () => updatePressState(false, widget.onPressChange)
-          : null,
-      behavior: HitTestBehavior.opaque,
-      excludeFromSemantics: true,
-      child: excludeTriggerSemantics
-          ? ExcludeSemantics(child: trigger)
-          : trigger,
-    );
+        final accordionChild = widget.excludeSemantics
+            ? triggerContent
+            : Semantics(
+                enabled: widget.enabled,
+                button: true,
+                expanded: isExpanded,
+                label: widget.semanticLabel,
+                onTap: widget.enabled ? onTap : null,
+                child: triggerContent,
+              );
 
-    Widget accordionChild = widget.excludeSemantics
-        ? triggerContent
-        : Semantics(
-            enabled: widget.enabled,
-            button: true,
-            expanded: isExpanded,
-            label: widget.semanticLabel,
-            onTap: widget.enabled ? onTap : null,
-            child: triggerContent,
-          );
-
-    final result = Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        NakedFocusableDetector(
+        final focusableTrigger = NakedFocusableDetector(
           enabled: widget.enabled,
           autofocus: widget.autofocus,
           onFocusChange: (f) => updateFocusState(f, widget.onFocusChange),
@@ -593,15 +599,16 @@ class _NakedAccordionState<T> extends State<NakedAccordion<T>>
           shortcuts: NakedIntentActions.accordion.shortcuts,
           actions: NakedIntentActions.accordion.actions(onToggle: onTap),
           child: accordionChild,
-        ),
-        NakedStateScopeBuilder(
-          value: accordionState,
-          builder: (context, accordionState, child) =>
-              widget.transitionBuilder != null
-              ? widget.transitionBuilder!(panel)
-              : panel,
-        ),
-      ],
+        );
+        final transitionedPanel =
+            widget.transitionBuilder?.call(panel) ?? panel;
+        final item = Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [focusableTrigger, transitionedPanel],
+        );
+
+        return widget.itemBuilder?.call(context, accordionState, item) ?? item;
+      },
     );
 
     return widget.excludeSemantics ? ExcludeSemantics(child: result) : result;
