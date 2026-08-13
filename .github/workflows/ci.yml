@@ -52,6 +52,8 @@ jobs:
       pull-requests: write
     strategy:
       fail-fast: false
+    env:
+      HAS_DCM_LICENSE: ${{ secrets.DCM_CI_KEY != '' && secrets.DCM_EMAIL != '' }}
 
     steps:
       - name: Checkout repository
@@ -74,14 +76,19 @@ jobs:
         run: flutter analyze
 
       - name: Install DCM
+        if: env.HAS_DCM_LICENSE == 'true'
         uses: CQLabs/setup-dcm@v2
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
         continue-on-error: true
 
       - name: Run DCM
+        if: env.HAS_DCM_LICENSE == 'true'
+        env:
+          DCM_CI_KEY: ${{ secrets.DCM_CI_KEY }}
+          DCM_EMAIL: ${{ secrets.DCM_EMAIL }}
         run: dcm analyze .
-        continue-on-error: true  # DCM requires paid license for CI - apply for free OSS license at dcm.dev/pricing
+        continue-on-error: true
 
       - name: Run tests
         run: flutter test packages/naked_ui/test --coverage

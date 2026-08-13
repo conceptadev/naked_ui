@@ -1,5 +1,8 @@
+import 'dart:ui' show Tristate;
+
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:naked_ui/src/utilities/naked_focusable_detector.dart';
@@ -122,6 +125,103 @@ void main() {
         );
         final focus = tester.widget<Focus>(focusFinder);
         expect(focus.canRequestFocus, isTrue); // Should still be focusable
+      });
+
+      testWidgets('updates focus semantics immediately when disabled', (
+        tester,
+      ) async {
+        var enabled = true;
+        late StateSetter rebuild;
+        final semantics = tester.ensureSemantics();
+
+        await tester.pumpWidget(
+          MaterialApp(
+            home: StatefulBuilder(
+              builder: (context, setState) {
+                rebuild = setState;
+                return NakedFocusableDetector(
+                  enabled: enabled,
+                  child: Semantics(
+                    label: 'target',
+                    child: const Text('Target'),
+                  ),
+                );
+              },
+            ),
+          ),
+        );
+
+        var data = tester.getSemantics(find.text('Target')).getSemanticsData();
+        expect(data.hasAction(SemanticsAction.focus), isTrue);
+
+        rebuild(() => enabled = false);
+        await tester.pump();
+
+        data = tester.getSemantics(find.text('Target')).getSemanticsData();
+        expect(data.hasAction(SemanticsAction.focus), isFalse);
+        expect(data.flagsCollection.isFocused, Tristate.none);
+        semantics.dispose();
+      });
+
+      testWidgets('ancestor focus exclusion removes focus semantics', (
+        tester,
+      ) async {
+        final semantics = tester.ensureSemantics();
+
+        await tester.pumpWidget(
+          MaterialApp(
+            home: ExcludeFocus(
+              child: NakedFocusableDetector(
+                child: Semantics(label: 'target', child: const Text('Target')),
+              ),
+            ),
+          ),
+        );
+        await tester.pump();
+
+        final data = tester
+            .getSemantics(find.text('Target'))
+            .getSemanticsData();
+        expect(data.hasAction(SemanticsAction.focus), isFalse);
+        expect(data.flagsCollection.isFocused, Tristate.none);
+        semantics.dispose();
+      });
+
+      testWidgets('updates focus semantics when ancestor exclusion changes', (
+        tester,
+      ) async {
+        var excluding = false;
+        late StateSetter rebuild;
+        final semantics = tester.ensureSemantics();
+        final target = NakedFocusableDetector(
+          child: Semantics(label: 'target', child: const Text('Target')),
+        );
+
+        await tester.pumpWidget(
+          MaterialApp(
+            home: StatefulBuilder(
+              builder: (context, setState) {
+                rebuild = setState;
+                return ExcludeFocus(excluding: excluding, child: target);
+              },
+            ),
+          ),
+        );
+
+        SemanticsData data() =>
+            tester.getSemantics(find.text('Target')).getSemanticsData();
+
+        expect(data().hasAction(SemanticsAction.focus), isTrue);
+
+        rebuild(() => excluding = true);
+        await tester.pump();
+        expect(data().hasAction(SemanticsAction.focus), isFalse);
+        expect(data().flagsCollection.isFocused, Tristate.none);
+
+        rebuild(() => excluding = false);
+        await tester.pump();
+        expect(data().hasAction(SemanticsAction.focus), isTrue);
+        semantics.dispose();
       });
     });
 

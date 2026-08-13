@@ -11,6 +11,9 @@ import 'utilities/intents.dart';
 import 'utilities/naked_focusable_detector.dart';
 import 'utilities/naked_state_scope.dart';
 import 'utilities/state.dart';
+import 'utilities/web_event_modifiers_stub.dart'
+    if (dart.library.js_interop) 'utilities/web_event_modifiers_web.dart'
+    as web_event_modifiers;
 
 /// The result of resolving an ordinary [NakedLink] activation.
 enum NakedLinkResolution {
@@ -221,6 +224,12 @@ class _NakedLinkState extends State<NakedLink>
   final _contentKey = GlobalKey(debugLabel: 'NakedLink content');
   var _modifiedPointerActivation = false;
 
+  @override
+  void initState() {
+    super.initState();
+    web_event_modifiers.ensureInitialized();
+  }
+
   bool get _hasPointerModifier {
     final keyboard = HardwareKeyboard.instance;
     return keyboard.isAltPressed ||
@@ -231,6 +240,19 @@ class _NakedLinkState extends State<NakedLink>
 
   bool get _isWebJavascriptLink =>
       kIsWeb && widget.linkUrl.scheme.toLowerCase() == 'javascript';
+
+  bool get _isModifiedWebClick {
+    return kIsWeb && web_event_modifiers.consumeModifiedClick();
+  }
+
+  void _handleModifiedActivation(launcher.FollowLink followLink) {
+    _modifiedPointerActivation = false;
+    if (_isWebJavascriptLink) {
+      _followPlatformDefault(followLink);
+    } else {
+      unawaited(followLink());
+    }
+  }
 
   void _handleOrdinaryActivation(launcher.FollowLink followLink) {
     if (!widget._effectiveEnabled) return;
@@ -294,11 +316,7 @@ class _NakedLinkState extends State<NakedLink>
     final modified = _modifiedPointerActivation || _hasPointerModifier;
     _modifiedPointerActivation = false;
     if (modified) {
-      if (_isWebJavascriptLink) {
-        _followPlatformDefault(followLink);
-      } else {
-        unawaited(followLink());
-      }
+      _handleModifiedActivation(followLink);
       return;
     }
     _handleOrdinaryActivation(followLink);
@@ -363,7 +381,16 @@ class _NakedLinkState extends State<NakedLink>
         ? () => _handlePointerActivation(followLink!)
         : null;
     final semanticActivation = isEnabled
-        ? () => _handleOrdinaryActivation(followLink!)
+        ? () {
+            // Flutter web converts a trusted DOM click on the semantics anchor
+            // into SemanticsAction.tap. Preserve the browser-owned modified
+            // click while keeping assistive-technology taps ordinary.
+            if (_isModifiedWebClick) {
+              _handleModifiedActivation(followLink!);
+            } else {
+              _handleOrdinaryActivation(followLink!);
+            }
+          }
         : null;
     Widget result = GestureDetector(
       onTapDown: isEnabled ? _handlePressStart : null,

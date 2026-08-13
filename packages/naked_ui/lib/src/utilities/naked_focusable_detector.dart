@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show Listenable, defaultTargetPlatform;
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
@@ -187,7 +188,16 @@ class _NakedFocusableDetectorState extends State<NakedFocusableDetector>
         // Traditional: disabled = unfocusable.
         : widget.enabled && widget.canRequestFocus;
 
-    // Start with Focus wrapping the child
+    // Focus derives these values from a cached FocusNode snapshot. The custom
+    // semantics wrapper reads the current node and its ancestors instead.
+    final focusChild = widget.includeSemantics
+        ? _NakedFocusSemantics(
+            canRequestFocus: effectiveCanRequestFocus,
+            child: widget.child,
+          )
+        : widget.child;
+
+    // Start with Focus wrapping the child.
     Widget result = Focus(
       focusNode: effectiveFocusNode,
       autofocus: widget.autofocus,
@@ -198,8 +208,8 @@ class _NakedFocusableDetectorState extends State<NakedFocusableDetector>
       skipTraversal: widget.skipTraversal,
       descendantsAreFocusable: widget.descendantsAreFocusable,
       descendantsAreTraversable: widget.descendantsAreTraversable,
-      includeSemantics: widget.includeSemantics,
-      child: widget.child,
+      includeSemantics: false,
+      child: focusChild,
     );
 
     // Wrap with MouseRegion if hover detection is needed
@@ -245,5 +255,43 @@ class _NakedFocusableDetectorState extends State<NakedFocusableDetector>
     }
 
     return result;
+  }
+}
+
+class _NakedFocusSemantics extends StatelessWidget {
+  const _NakedFocusSemantics({
+    required this.canRequestFocus,
+    required this.child,
+  });
+
+  final bool canRequestFocus;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final focusNode = Focus.of(context);
+    final focusChain = Listenable.merge(<Listenable>[
+      focusNode,
+      ...focusNode.ancestors,
+    ]);
+
+    return ListenableBuilder(
+      listenable: focusChain,
+      builder: (context, child) {
+        final effectiveCanRequestFocus =
+            canRequestFocus && focusNode.canRequestFocus;
+        return Semantics(
+          onFocus:
+              defaultTargetPlatform != TargetPlatform.iOS &&
+                  effectiveCanRequestFocus
+              ? focusNode.requestFocus
+              : null,
+          focusable: effectiveCanRequestFocus,
+          focused: effectiveCanRequestFocus ? focusNode.hasPrimaryFocus : null,
+          child: child,
+        );
+      },
+      child: child,
+    );
   }
 }

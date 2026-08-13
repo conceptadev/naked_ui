@@ -6,6 +6,10 @@ import 'package:naked_ui/naked_ui.dart';
 import 'package:url_launcher_platform_interface/link.dart';
 import 'package:url_launcher_platform_interface/url_launcher_platform_interface.dart';
 
+import 'web_modifier_listener_stub.dart'
+    if (dart.library.js_interop) 'web_modifier_listener_web.dart'
+    as web_modifier_listener;
+
 void main() {
   late UrlLauncherPlatform originalPlatform;
   late _FakeUrlLauncherPlatform platform;
@@ -56,6 +60,15 @@ void main() {
     } finally {
       await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
     }
+  }, skip: !kIsWeb);
+
+  testWidgets('web retains DOM modifiers through target click listeners', (
+    tester,
+  ) async {
+    await tester.pumpWidget(_testApp(Uri.parse('https://example.com/docs')));
+
+    expect(await web_modifier_listener.probeCaptureToTarget(), isTrue);
+    await tester.pump(Duration.zero);
   }, skip: !kIsWeb);
 
   testWidgets('web opens HTTP and HTTPS destinations in the current tab', (
