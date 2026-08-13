@@ -2,6 +2,7 @@ import 'dart:ui' show Tristate;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:naked_ui/naked_ui.dart';
 
@@ -52,6 +53,29 @@ void main() {
           _testApp(
             NakedLink(
               linkUrl: _destination,
+              onActivated: (_) {},
+              child: const Text('Visible name'),
+            ),
+          ),
+        );
+
+        expect(_singleLinkData(tester).label, 'Visible name');
+      } finally {
+        handle.dispose();
+      }
+    });
+
+    testWidgets('blank semantic label falls back to visible text', (
+      tester,
+    ) async {
+      final handle = tester.ensureSemantics();
+
+      try {
+        await tester.pumpWidget(
+          _testApp(
+            NakedLink(
+              linkUrl: _destination,
+              semanticLabel: ' \t\n ',
               onActivated: (_) {},
               child: const Text('Visible name'),
             ),
@@ -231,6 +255,39 @@ void main() {
         await tester.pump();
         expect(events, ['observer:$_destination', 'resolver:$_destination']);
       } finally {
+        handle.dispose();
+      }
+    });
+
+    testWidgets('semantic tap remains ordinary while a modifier is held', (
+      tester,
+    ) async {
+      final handle = tester.ensureSemantics();
+      final events = <String>[];
+
+      try {
+        await tester.pumpWidget(
+          _testApp(
+            NakedLink(
+              linkUrl: _destination,
+              onActivated: (url) => events.add('observer:$url'),
+              child: const Text('Documentation'),
+            ),
+            resolve: (_, url) {
+              events.add('resolver:$url');
+              return NakedLinkResolution.handled;
+            },
+          ),
+        );
+
+        await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+        final node = _singleLinkNode(tester);
+        node.owner!.performAction(node.id, SemanticsAction.tap);
+        await tester.pump();
+
+        expect(events, ['observer:$_destination', 'resolver:$_destination']);
+      } finally {
+        await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
         handle.dispose();
       }
     });

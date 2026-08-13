@@ -97,8 +97,11 @@ NakedButton(
 Use a Link for navigation rather than styling a Button like text. `linkUrl` is
 required, while `enabled` is the only availability switch. Naked UI retains a
 native anchor through Flutter's official `url_launcher.Link`; ordinary external
-web navigation opens in the current tab, while internal/non-web defaults use
-its `FollowLink` path. Enter and Numpad Enter activate, while
+HTTP(S) navigation opens in the current tab, while scheme-less routes,
+browser/OS handler schemes such as `mailto:`, `tel:`, and custom schemes use its
+`FollowLink` path. Primary, keyboard, and semantic activation of the
+`javascript:` scheme remains on `url_launcher_web`'s guarded launch path.
+Non-web defaults also use `FollowLink`. Enter and Numpad Enter activate, while
 Space remains available to the page. Validate destinations before constructing
 a Link—Naked UI accepts every `Uri` unchanged.
 

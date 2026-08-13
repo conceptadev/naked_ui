@@ -193,8 +193,9 @@ class NakedLink extends StatefulWidget {
 
   /// The optional caller-localized accessible name.
   ///
-  /// When non-null, this replaces descendant naming semantics so the Link is
-  /// announced once. Otherwise visible child text supplies the name.
+  /// When non-empty, this replaces descendant naming semantics so the Link is
+  /// announced once. Null or whitespace-only values let visible child text
+  /// supply the name.
   final String? semanticLabel;
 
   /// Optional caller-localized accessible hint.
@@ -228,6 +229,9 @@ class _NakedLinkState extends State<NakedLink>
         keyboard.isShiftPressed;
   }
 
+  bool get _isWebJavascriptLink =>
+      kIsWeb && widget.linkUrl.scheme.toLowerCase() == 'javascript';
+
   void _handleOrdinaryActivation(launcher.FollowLink followLink) {
     if (!widget._effectiveEnabled) return;
 
@@ -245,14 +249,20 @@ class _NakedLinkState extends State<NakedLink>
   }
 
   void _followPlatformDefault(launcher.FollowLink followLink) {
-    if (kIsWeb && widget.linkUrl.hasScheme) {
-      unawaited(_launchWebExternalLink());
+    final scheme = widget.linkUrl.scheme.toLowerCase();
+    final usesWebLauncher =
+        _isWebJavascriptLink ||
+        (kIsWeb && (scheme == 'http' || scheme == 'https'));
+    if (usesWebLauncher) {
+      // Keep javascript URIs on url_launcher_web's guarded path. Its Link
+      // delegate otherwise exposes the URI directly through a DOM anchor.
+      unawaited(_launchWebLink());
       return;
     }
     unawaited(followLink());
   }
 
-  Future<void> _launchWebExternalLink() async {
+  Future<void> _launchWebLink() async {
     try {
       final launched = await url_launcher.launchUrl(
         widget.linkUrl,
@@ -284,7 +294,11 @@ class _NakedLinkState extends State<NakedLink>
     final modified = _modifiedPointerActivation || _hasPointerModifier;
     _modifiedPointerActivation = false;
     if (modified) {
-      unawaited(followLink());
+      if (_isWebJavascriptLink) {
+        _followPlatformDefault(followLink);
+      } else {
+        unawaited(followLink());
+      }
       return;
     }
     _handleOrdinaryActivation(followLink);
@@ -343,14 +357,19 @@ class _NakedLinkState extends State<NakedLink>
 
   Widget _buildLink(launcher.FollowLink? followLink) {
     final isEnabled = widget._effectiveEnabled;
-    final activation = isEnabled
+    final semanticLabel = widget.semanticLabel;
+    final hasSemanticLabel = semanticLabel?.trim().isNotEmpty ?? false;
+    final pointerActivation = isEnabled
         ? () => _handlePointerActivation(followLink!)
+        : null;
+    final semanticActivation = isEnabled
+        ? () => _handleOrdinaryActivation(followLink!)
         : null;
     Widget result = GestureDetector(
       onTapDown: isEnabled ? _handlePressStart : null,
       onTapUp: isEnabled ? (_) => _handlePressEnd() : null,
       onTapCancel: isEnabled ? _handlePressCancel : null,
-      onTap: activation,
+      onTap: pointerActivation,
       behavior: HitTestBehavior.opaque,
       excludeFromSemantics: true,
       child: NakedStateScopeBuilder(
@@ -365,10 +384,10 @@ class _NakedLinkState extends State<NakedLink>
         enabled: isEnabled,
         link: isEnabled,
         linkUrl: isEnabled ? widget.linkUrl : null,
-        label: widget.semanticLabel,
+        label: hasSemanticLabel ? semanticLabel : null,
         hint: widget.semanticHint,
-        excludeSemantics: widget.semanticLabel != null,
-        onTap: activation,
+        excludeSemantics: hasSemanticLabel,
+        onTap: semanticActivation,
         child: result,
       );
     }

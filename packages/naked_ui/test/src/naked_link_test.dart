@@ -468,6 +468,55 @@ void main() {
       },
     );
 
+    testWidgets(
+      'modifier pressed after pointer down keeps activation browser-owned',
+      (tester) async {
+        const linkKey = ValueKey('link');
+        var observerCalls = 0;
+        var resolverCalls = 0;
+
+        await tester.pumpWidget(
+          _testApp(
+            NakedLink(
+              key: linkKey,
+              linkUrl: Uri.parse('/modified-after-down'),
+              onActivated: (_) => observerCalls++,
+              child: const SizedBox(
+                width: 160,
+                height: 48,
+                child: Text('Link'),
+              ),
+            ),
+            resolve: (_, _) {
+              resolverCalls++;
+              return NakedLinkResolution.handled;
+            },
+          ),
+        );
+
+        final gesture = await tester.startGesture(
+          tester.getCenter(find.byKey(linkKey)),
+          kind: PointerDeviceKind.mouse,
+        );
+        var pointerIsDown = true;
+        addTearDown(() async {
+          if (pointerIsDown) await gesture.cancel();
+        });
+
+        await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+        try {
+          await gesture.up();
+          pointerIsDown = false;
+          await tester.pump();
+
+          expect(observerCalls, 0);
+          expect(resolverCalls, 0);
+        } finally {
+          await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+        }
+      },
+    );
+
     testWidgets('Enter and Numpad Enter activate while Space does not', (
       tester,
     ) async {

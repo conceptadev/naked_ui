@@ -52,6 +52,12 @@ jobs:
           "${{ steps.chrome.outputs.chrome-path }}" --version
           "${{ steps.chrome.outputs.chromedriver-path }}" --version
 
+      - name: Run NakedLink browser unit tests
+        working-directory: packages/naked_ui
+        env:
+          CHROME_EXECUTABLE: ${{ steps.chrome.outputs.chrome-path }}
+        run: flutter test --platform chrome test/src/naked_link_web_test.dart
+
       - name: Run integration tests on web
         working-directory: packages/example
         run: |
