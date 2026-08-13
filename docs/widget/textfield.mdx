@@ -14,7 +14,7 @@ Headless text input component. Preserves native text editing behavior (selection
 - **Specialized inputs**: Custom styled inputs that standard TextFields can't provide
 
 <Info>
-  See the complete example in [`example/lib/api/naked_textfield.0.dart`](https://github.com/btwld/naked_ui/blob/main/example/lib/api/naked_textfield.0.dart).
+  See the complete example in [`packages/example/lib/api/naked_textfield.0.dart`](https://github.com/btwld/naked_ui/blob/main/packages/example/lib/api/naked_textfield.0.dart).
 </Info>
 
 ## Basic implementation
@@ -128,6 +128,7 @@ const NakedTextField({
   this.onAppPrivateCommand,
   this.inputFormatters,
   this.enabled = true,
+  this.error = false,
   this.cursorWidth = 2.0,
   this.cursorHeight,
   this.cursorRadius,
@@ -165,7 +166,9 @@ const NakedTextField({
   this.ignorePointers,
   this.semanticLabel,
   this.semanticHint,
+  this.semanticErrorText,
   this.strutStyle,
+  this.excludeSemantics = false,
 })
 ```
 
@@ -185,9 +188,23 @@ const NakedTextField({
 
 ## Accessibility & Semantics
 
-- Supply `semanticLabel` / `semanticHint` when the visual chrome lacks textual context
+- Supply `semanticLabel` and `semanticHint` when the visual chrome lacks textual context
+- Pair `semanticErrorText` with `error: true`; when `error` is false, the error text is not announced and the field is not a live region
+- Set `excludeSemantics` to hide the field and its descendants from accessibility services
 - `NakedTextField` wraps the builder result with proper `Semantics` for focusable text fields
 - Respect contrast and focus indicators in your builder to ensure the field remains discoverable
+
+For a validation error, derive both parameters from the same state:
+
+```dart
+NakedTextField(
+  controller: emailController,
+  error: emailError != null,
+  semanticLabel: 'Email',
+  semanticErrorText: emailError,
+  builder: (context, state, editableText) => editableText,
+);
+```
 
 ## Tips
 

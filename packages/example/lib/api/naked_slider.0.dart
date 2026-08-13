@@ -54,10 +54,13 @@ class _SliderExampleState extends State<SliderExample> {
         width: double.infinity,
         height: 20,
         child: NakedSlider(
-          value: _value,
-          onChanged: (newValue) {
+          values: [_value],
+          min: 0,
+          max: 1,
+          step: 0.01,
+          onChanged: (newValues) {
             setState(() {
-              _value = newValue;
+              _value = newValues.single;
             });
           },
           child: CustomPaint(

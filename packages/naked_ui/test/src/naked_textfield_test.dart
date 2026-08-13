@@ -6,6 +6,8 @@
 // - Non-brittle spellcheck/magnifier checks
 // - Covers lifecycle, editing, selection, semantics, restoration, etc.
 
+import 'package:flutter/cupertino.dart'
+    show CupertinoDynamicColor, CupertinoTheme, CupertinoThemeData;
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -456,6 +458,59 @@ void main() {
 
       et = _getEditableText(tester);
       expect(et.selectionColor, isNotNull);
+    });
+
+    testWidgets('ambient DefaultSelectionStyle selection color reaches '
+        'EditableText', (tester) async {
+      final ctl = TextEditingController(text: 'abc');
+
+      await _pumpApp(
+        tester,
+        child: DefaultSelectionStyle(
+          selectionColor: const Color(0xFF9E9E9E),
+          child: NakedTextField(controller: ctl, builder: _builder()),
+        ),
+      );
+
+      await tester.tap(find.byType(EditableText));
+      await tester.pump();
+
+      final et = _getEditableText(tester);
+      expect(et.selectionColor, const Color(0xFF9E9E9E));
+    });
+
+    testWidgets('ambient dynamic selection style resolves in dark mode', (
+      tester,
+    ) async {
+      const lightCursorColor = Color(0xFF1565C0);
+      const darkCursorColor = Color(0xFF90CAF9);
+      const lightSelectionColor = Color(0x661565C0);
+      const darkSelectionColor = Color(0x6690CAF9);
+
+      await _pumpApp(
+        tester,
+        child: CupertinoTheme(
+          data: const CupertinoThemeData(brightness: Brightness.dark),
+          child: DefaultSelectionStyle(
+            cursorColor: const CupertinoDynamicColor.withBrightness(
+              color: lightCursorColor,
+              darkColor: darkCursorColor,
+            ),
+            selectionColor: const CupertinoDynamicColor.withBrightness(
+              color: lightSelectionColor,
+              darkColor: darkSelectionColor,
+            ),
+            child: NakedTextField(builder: _builder()),
+          ),
+        ),
+      );
+
+      await tester.tap(find.byType(EditableText));
+      await tester.pump();
+
+      final et = _getEditableText(tester);
+      expect(et.cursorColor.toARGB32(), darkCursorColor.toARGB32());
+      expect(et.selectionColor?.toARGB32(), darkSelectionColor.toARGB32());
     });
   });
 

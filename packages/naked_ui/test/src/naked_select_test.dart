@@ -17,6 +17,8 @@ void main() {
     bool enabled = true,
     VoidCallback? onMenuClose,
     bool closeOnSelect = true,
+    bool? open,
+    ValueChanged<bool>? onOpenChanged,
   }) {
     return Center(
       child: NakedSelect<T>(
@@ -24,6 +26,8 @@ void main() {
         onChanged: onSelectedValueChanged ?? (_) {},
         enabled: enabled,
         closeOnSelect: closeOnSelect,
+        open: open,
+        onOpenChanged: onOpenChanged,
         onClose: onMenuClose,
         builder: (context, state, child) => const Text('Select option'),
         overlayBuilder: (context, info) => Container(
@@ -51,6 +55,69 @@ void main() {
   }
 
   group('Core Functionality', () {
+    testWidgets('controlled open state follows the owner', (tester) async {
+      var open = false;
+      late StateSetter setHostState;
+
+      await tester.pumpMaterialWidget(
+        StatefulBuilder(
+          builder: (context, setState) {
+            setHostState = setState;
+            return buildSelect<String>(
+              open: open,
+              onOpenChanged: (value) => setState(() => open = value),
+            );
+          },
+        ),
+      );
+
+      expect(find.text('Apple'), findsNothing);
+      setHostState(() => open = true);
+      await tester.pump();
+      await tester.pump();
+      expect(find.text('Apple'), findsOneWidget);
+
+      setHostState(() => open = false);
+      await tester.pump();
+      await tester.pump();
+      expect(find.text('Apple'), findsNothing);
+    });
+
+    testWidgets('controlled trigger requests opening without mutating state', (
+      tester,
+    ) async {
+      final requests = <bool>[];
+      await tester.pumpMaterialWidget(
+        buildSelect<String>(open: false, onOpenChanged: requests.add),
+      );
+
+      await tester.tap(find.text('Select option'));
+      await tester.pump();
+
+      expect(requests, [true]);
+      expect(find.text('Apple'), findsNothing);
+    });
+
+    testWidgets('controlled option selection requests close', (tester) async {
+      final openRequests = <bool>[];
+      String? selected;
+      await tester.pumpMaterialWidget(
+        buildSelect<String>(
+          open: true,
+          onOpenChanged: openRequests.add,
+          onSelectedValueChanged: (value) => selected = value,
+        ),
+      );
+      await tester.pump();
+
+      await tester.tap(find.text('Apple'));
+      await tester.pump();
+
+      expect(selected, 'apple');
+      expect(openRequests, [false]);
+      expect(find.text('Apple'), findsOneWidget);
+    });
+
     testWidgets(
       'renders trigger and menu when opened',
       (WidgetTester tester) async {
@@ -625,8 +692,8 @@ void main() {
               child: NakedSelect<String>(
                 onChanged: (_) {},
                 positioning: const OverlayPositionConfig(
-                  targetAnchor: Alignment.bottomLeft,
-                  followerAnchor: Alignment.topLeft,
+                  side: OverlaySide.bottom,
+                  alignment: OverlayAlignment.start,
                 ),
                 builder: (context, state, child) => const Text('Select option'),
                 overlayBuilder: (context, info) => Container(

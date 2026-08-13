@@ -14,7 +14,7 @@ Headless tooltip component built on Flutter's `RawTooltip`. Handles hover/touch 
 - **Feature descriptions**: Brief explanations of complex features
 
 <Info>
-  Working example: [`example/lib/api/naked_tooltip.0.dart`](https://github.com/btwld/naked_ui/blob/main/example/lib/api/naked_tooltip.0.dart).
+  Working example: [`packages/example/lib/api/naked_tooltip.0.dart`](https://github.com/btwld/naked_ui/blob/main/packages/example/lib/api/naked_tooltip.0.dart).
 </Info>
 
 ## Basic implementation
@@ -80,6 +80,7 @@ const NakedTooltip({
   this.positioning = const OverlayPositionConfig(),
   this.semanticLabel,
   this.excludeSemantics = false,
+  this.excludeOverlaySemantics,
 })
 ```
 
@@ -95,7 +96,8 @@ const NakedTooltip({
 - `animationStyle` → customize animation duration, curve, and reverse behavior
 - `onTriggered` → called when triggered by tap or long press (not hover)
 - `semanticLabel` → text announced by assistive technologies
-- `excludeSemantics` → hide tooltip semantics from accessibility services
+- `excludeSemantics` → hide the trigger, tooltip description, and visual overlay subtree from accessibility services
+- `excludeOverlaySemantics` → control the visual overlay subtree independently; by default it is hidden when a non-empty `semanticLabel` describes the tooltip on the trigger, and retained otherwise
 
 ## Behaviour Notes
 
@@ -105,6 +107,7 @@ const NakedTooltip({
 - Use `AnimationStyle.noAnimation` to disable the built-in transition
 - The tooltip dismisses on outside tap (controllable via `enableTapToDismiss`)
 - Only one tooltip is shown at a time when using nested tooltips
+- Visual overlay content is semantics-excluded automatically when a non-empty `semanticLabel` describes it on the trigger; set `excludeOverlaySemantics` explicitly to override this behavior
 
 ## Positioning Tips
 

@@ -44,9 +44,9 @@ class TooltipExample extends StatelessWidget {
     return NakedTooltip(
       semanticLabel: 'This is a tooltip',
       positioning: const OverlayPositionConfig(
-        targetAnchor: Alignment.bottomRight,
-        followerAnchor: Alignment.topCenter,
-        offset: Offset(0, 4),
+        side: OverlaySide.bottom,
+        alignment: OverlayAlignment.end,
+        sideOffset: 4,
       ),
       hoverDelay: Duration.zero,
       dismissDelay: const Duration(seconds: 1),

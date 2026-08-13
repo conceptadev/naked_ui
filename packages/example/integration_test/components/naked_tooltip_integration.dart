@@ -150,8 +150,8 @@ void main() {
             body: Center(
               child: NakedTooltip(
                 positioning: const OverlayPositionConfig(
-                  targetAnchor: Alignment.bottomCenter,
-                  followerAnchor: Alignment.topCenter,
+                  side: OverlaySide.bottom,
+                  alignment: OverlayAlignment.center,
                 ),
                 hoverDelay: Duration.zero,
                 dismissDelay: Duration.zero,

@@ -40,9 +40,12 @@ void main() {
             body: Center(
               child: NakedSlider(
                 key: sliderKey,
-                value: currentValue,
-                focusNode: focusNode,
-                onChanged: (value) => currentValue = value,
+                values: [currentValue],
+                min: 0,
+                max: 1,
+                step: 0.01,
+                focusNodes: [focusNode],
+                onChanged: (values) => currentValue = values.single,
                 child: Container(
                   width: 200,
                   height: 20,
@@ -93,15 +96,18 @@ void main() {
             body: Center(
               child: NakedSlider(
                 key: sliderKey,
-                value: currentValue,
-                onChanged: (value) {
-                  currentValue = value;
+                values: [currentValue],
+                min: 0,
+                max: 1,
+                step: 0.01,
+                onChanged: (values) {
+                  currentValue = values.single;
                   valueChanged = true;
                 },
-                onDragStart: () {
+                onChangeStart: (values) {
                   dragStarted = true;
                 },
-                onDragEnd: (value) {
+                onChangeEnd: (values) {
                   dragEnded = true;
                 },
                 child: Container(
@@ -151,9 +157,12 @@ void main() {
             body: Center(
               child: NakedSlider(
                 key: sliderKey,
-                value: currentValue,
-                focusNode: focusNode,
-                onChanged: (value) => currentValue = value,
+                values: [currentValue],
+                min: 0,
+                max: 1,
+                step: 0.01,
+                focusNodes: [focusNode],
+                onChanged: (values) => currentValue = values.single,
                 onHoverChange: (hovered) => isHovered = hovered,
                 onFocusChange: (focused) => isFocused = focused,
                 child: Container(
@@ -192,9 +201,12 @@ void main() {
             body: Center(
               child: NakedSlider(
                 key: sliderKey,
-                value: currentValue,
+                values: [currentValue],
+                min: 0,
+                max: 1,
+                step: 0.01,
                 enabled: false,
-                onChanged: (value) => valueChanged = true,
+                onChanged: (values) => valueChanged = true,
                 onHoverChange: (hovered) => hoverChanged = true,
                 child: Container(
                   width: 200,
@@ -230,10 +242,10 @@ void main() {
             body: Center(
               child: NakedSlider(
                 key: sliderKey,
-                value: currentValue,
+                values: [currentValue],
                 min: 5.0,
                 max: 15.0,
-                onChanged: (value) => currentValue = value,
+                onChanged: (values) => currentValue = values.single,
                 child: Container(
                   width: 200,
                   height: 20,
@@ -279,11 +291,11 @@ void main() {
             body: Center(
               child: NakedSlider(
                 key: sliderKey,
-                value: currentValue,
+                values: [currentValue],
                 min: 0.0,
                 max: 1.0,
-                divisions: 4, // 0.0, 0.25, 0.5, 0.75, 1.0
-                onChanged: (value) => currentValue = value,
+                step: 0.25,
+                onChanged: (values) => currentValue = values.single,
                 child: Container(
                   width: 200,
                   height: 20,

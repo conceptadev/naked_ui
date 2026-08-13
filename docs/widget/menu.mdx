@@ -14,7 +14,7 @@ Headless menu component. Handles focus, keyboard navigation, outside-click dismi
 - **Custom overlays**: Any triggered overlay that needs menu-like behavior
 
 <Info>
-  Browse the full sample at [`example/lib/api/naked_menu.0.dart`](https://github.com/btwld/naked_ui/blob/main/example/lib/api/naked_menu.0.dart).
+  Browse the full sample at [`packages/example/lib/api/naked_menu.0.dart`](https://github.com/btwld/naked_ui/blob/main/packages/example/lib/api/naked_menu.0.dart).
 </Info>
 
 ## Basic implementation
@@ -140,7 +140,7 @@ class _MenuItem extends StatelessWidget {
               Icon(icon, size: 16,
                   color: selected ? Colors.blue : Colors.grey.shade700),
               const SizedBox(width: 12),
-              Expanded(child: const Text(label)),
+              Expanded(child: Text(label)),
               if (selected)
                 const Icon(Icons.check, size: 16, color: Colors.blue),
             ],
@@ -188,6 +188,8 @@ const NakedMenu({
   this.closeOnClickOutside = true,
   this.triggerFocusNode,
   this.positioning = const OverlayPositionConfig(),
+  this.semanticLabel,
+  this.excludeSemantics = false,
 })
 ```
 
@@ -201,6 +203,8 @@ const NakedMenu({
 - `closeOnClickOutside` → hide the overlay when tapping outside (default `true`)
 - `consumeOutsideTaps` / `useRootOverlay` → capture outside taps before they reach ancestors or target the root overlay stack
 - `triggerFocusNode` → reuse an external focus node so focus returns to the trigger after closing
+- `semanticLabel` → provide an accessible name for the menu trigger
+- `excludeSemantics` → hide the menu trigger subtree from the semantic tree; opened overlay content remains exposed
 - Lifecycle hooks: `onOpen`, `onClose`, `onCanceled` announce overlay visibility; `onOpenRequested`, `onCloseRequested` let you intercept RawMenuAnchor requests before they commit
 
 ## NakedMenuItem Essentials

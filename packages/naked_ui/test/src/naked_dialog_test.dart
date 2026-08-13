@@ -518,6 +518,47 @@ void main() {
       await tester.pump();
     });
 
+    testWidgets('fallback preserves a descendant autofocus request', (
+      tester,
+    ) async {
+      final firstNode = FocusNode(debugLabel: 'first alert action');
+      final autofocusNode = FocusNode(debugLabel: 'autofocus alert action');
+      addTearDown(firstNode.dispose);
+      addTearDown(autofocusNode.dispose);
+      final hostContext = await _pumpEmptyHost(tester);
+
+      showNakedAlertDialog<void>(
+        context: hostContext,
+        barrierColor: Colors.black54,
+        semanticLabel: 'Confirm action',
+        transitionDuration: Duration.zero,
+        builder: (context) => Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ElevatedButton(
+              focusNode: firstNode,
+              onPressed: () {},
+              child: const Text('First'),
+            ),
+            ElevatedButton(
+              autofocus: true,
+              focusNode: autofocusNode,
+              onPressed: () {},
+              child: const Text('Autofocus'),
+            ),
+          ],
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+
+      expect(FocusManager.instance.primaryFocus, same(autofocusNode));
+
+      Navigator.of(hostContext).pop();
+      await tester.pump();
+      await tester.pump();
+    });
+
     testWidgets('closing after removing the invoker does not throw', (
       tester,
     ) async {

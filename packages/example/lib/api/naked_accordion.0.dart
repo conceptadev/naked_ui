@@ -155,6 +155,9 @@ class _AccordionItemState extends State<AccordionItem> {
               child: SizeTransition(
                 axis: Axis.vertical,
                 sizeFactor: animation,
+                // Flutter 3.44 deprecates this in favor of `alignment`, which
+                // is unavailable on the oldest SDK in the supported matrix.
+                // ignore: deprecated_member_use
                 axisAlignment: 1,
                 child: child,
               ),

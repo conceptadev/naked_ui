@@ -1,271 +1,245 @@
 import 'dart:ui' as ui;
 
-import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:naked_ui/naked_ui.dart';
 
 import 'semantics_test_utils.dart';
 
 void main() {
-  Widget _buildTestApp(Widget child) {
+  Widget testApp({
+    required List<double> values,
+    ValueChanged<List<double>>? onChanged,
+    double min = 0,
+    double max = 100,
+    double step = 1,
+    double minSpacing = 0,
+    bool enabled = true,
+    List<FocusNode?>? focusNodes,
+    List<String?>? labels,
+    List<NakedSliderSemanticFormatterCallback?>? formatters,
+    bool excludeSemantics = false,
+  }) {
     return MaterialApp(
-      home: Scaffold(body: Center(child: child)),
+      home: Scaffold(
+        body: Center(
+          child: NakedSlider(
+            values: values,
+            min: min,
+            max: max,
+            step: step,
+            minSpacing: minSpacing,
+            enabled: enabled,
+            focusNodes: focusNodes,
+            semanticLabels: labels,
+            semanticFormatterCallbacks: formatters,
+            excludeSemantics: excludeSemantics,
+            onChanged: onChanged,
+            child: const SizedBox(width: 240, height: 48),
+          ),
+        ),
+      ),
     );
   }
 
-  group('NakedSlider Semantics', () {
-    testWidgets('enabled slider exposes value and keyboard step semantics', (
+  List<SemanticsNode> sliderNodes(WidgetTester tester) {
+    final root = tester.getSemantics(find.byType(Scaffold));
+
+    return collectSemanticsNodes(
+      root,
+      (node) => node.getSemanticsData().flagsCollection.isSlider,
+    );
+  }
+
+  void performAction(
+    WidgetTester tester,
+    SemanticsNode node,
+    ui.SemanticsAction action,
+  ) {
+    tester.binding.performSemanticsAction(
+      ui.SemanticsActionEvent(
+        type: action,
+        viewId: tester.view.viewId,
+        nodeId: node.id,
+      ),
+    );
+  }
+
+  group('NakedSlider semantics', () {
+    testWidgets('exposes one independent slider node per thumb', (
       tester,
     ) async {
       final handle = tester.ensureSemantics();
-
       await tester.pumpWidget(
-        _buildTestApp(
-          NakedSlider(
-            value: 0.5,
-            min: 0,
-            max: 1,
-            onChanged: (_) {},
-            child: const SizedBox(width: 200, height: 40),
-          ),
+        testApp(
+          values: const [20, 50, 80],
+          labels: const ['Minimum', 'Target', 'Maximum'],
+          onChanged: (_) {},
         ),
       );
 
-      final summary = summarizeMergedFromRoot(
-        tester,
-        control: ControlType.slider,
-      );
-      expect(summary.value, '50%');
-      expect(summary.increasedValue, '51%');
-      expect(summary.decreasedValue, '49%');
-      expect(summary.flags, containsAll(['isSlider', 'hasEnabledState']));
-      expect(summary.flags, contains('isEnabled'));
-      expect(summary.actions, containsAll(['increase', 'decrease']));
-
-      handle.dispose();
-    });
-
-    testWidgets('disabled slider exposes value without semantic actions', (
-      tester,
-    ) async {
-      final handle = tester.ensureSemantics();
-
-      await tester.pumpWidget(
-        _buildTestApp(
-          NakedSlider(
-            value: 0.5,
-            min: 0,
-            max: 1,
-            onChanged: null,
-            child: const SizedBox(width: 200, height: 40),
-          ),
-        ),
-      );
-
-      final summary = summarizeMergedFromRoot(
-        tester,
-        control: ControlType.slider,
-      );
-      expect(summary.value, '50%');
-      expect(summary.flags, contains('isSlider'));
-      expect(summary.flags, isNot(contains('isEnabled')));
-      expect(summary.actions, isEmpty);
-
-      handle.dispose();
-    });
-
-    testWidgets('focus parity', (tester) async {
-      final handle = tester.ensureSemantics();
-      // Force traditional focus highlight so Material exposes `isFocused`
-      // in semantics consistently regardless of any pointer events that ran
-      // in earlier tests in the same suite.
-      FocusManager.instance.highlightStrategy =
-          FocusHighlightStrategy.alwaysTraditional;
-      final fm = FocusNode();
-      final fn = FocusNode();
-
-      await tester.pumpWidget(
-        _buildTestApp(
-          Slider(value: 0.2, min: 0, max: 1, onChanged: (_) {}, focusNode: fm),
-        ),
-      );
-      fm.requestFocus();
-      await tester.pump();
-      final materialFocused = summarizeMergedFromRoot(
-        tester,
-        control: ControlType.slider,
-      );
-
-      await tester.pumpWidget(
-        _buildTestApp(
-          NakedSlider(
-            value: 0.2,
-            min: 0,
-            max: 1,
-            onChanged: (_) {},
-            focusNode: fn,
-            child: const SizedBox(width: 200, height: 40),
-          ),
-        ),
-      );
-      fn.requestFocus();
-      await tester.pump();
-      final nakedFocused = summarizeMergedFromRoot(
-        tester,
-        control: ControlType.slider,
-      );
-
-      expect(nakedFocused.label, materialFocused.label);
-      expect(nakedFocused.value, materialFocused.value);
-      expect(nakedFocused.flags, materialFocused.flags);
-      expect(nakedFocused.actions, materialFocused.actions);
-
-      fm.dispose();
-      fn.dispose();
-      handle.dispose();
-    });
-
-    testWidgets('hover parity', (tester) async {
-      final handle = tester.ensureSemantics();
-      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
-      await mouse.addPointer();
-      await tester.pump();
-
-      await tester.pumpWidget(
-        _buildTestApp(Slider(value: 0.7, min: 0, max: 1, onChanged: (_) {})),
-      );
-      await mouse.moveTo(tester.getCenter(find.byType(Slider)));
-      await tester.pump();
-      final materialHovered = summarizeMergedFromRoot(
-        tester,
-        control: ControlType.slider,
-      );
-
-      await tester.pumpWidget(
-        _buildTestApp(
-          NakedSlider(
-            value: 0.7,
-            min: 0,
-            max: 1,
-            onChanged: (_) {},
-            child: const SizedBox(width: 200, height: 40),
-          ),
-        ),
-      );
-      await mouse.moveTo(tester.getCenter(find.byType(NakedSlider)));
-      await tester.pump();
-      final nakedHovered = summarizeMergedFromRoot(
-        tester,
-        control: ControlType.slider,
-      );
-
-      expect(nakedHovered.label, materialHovered.label);
-      expect(nakedHovered.value, materialHovered.value);
-      expect(nakedHovered.flags, materialHovered.flags);
-      expect(nakedHovered.actions, materialHovered.actions);
-      await mouse.removePointer();
-      handle.dispose();
-    });
-
-    testWidgets('semanticFormatterCallback customizes value announcements', (
-      tester,
-    ) async {
-      final handle = tester.ensureSemantics();
-
-      await tester.pumpWidget(
-        _buildTestApp(
-          NakedSlider(
-            value: 50,
-            min: 0,
-            max: 100,
-            keyboardStep: 10,
-            semanticFormatterCallback: (value) => '${value.round()} dollars',
-            onChanged: (_) {},
-            child: const SizedBox(width: 200, height: 40),
-          ),
-        ),
-      );
-
-      final summary = summarizeMergedFromRoot(
-        tester,
-        control: ControlType.slider,
-      );
-      expect(summary.value, '50 dollars');
-      expect(summary.increasedValue, '60 dollars');
-      expect(summary.decreasedValue, '40 dollars');
-
-      handle.dispose();
-    });
-
-    testWidgets('semantic increase and decrease actions step and clamp value', (
-      tester,
-    ) async {
-      final handle = tester.ensureSemantics();
-      final reportedValues = <double>[];
-
-      await tester.pumpWidget(
-        _buildTestApp(
-          NakedSlider(
-            value: 0.5,
-            min: 0,
-            max: 1,
-            keyboardStep: 0.1,
-            onChanged: reportedValues.add,
-            child: const SizedBox(width: 200, height: 40),
-          ),
-        ),
-      );
-
-      var root = tester.getSemantics(find.byType(Scaffold));
-      var sliderNode = findSemanticsNode(
-        root,
-        (node) => node.getSemanticsData().flagsCollection.isSlider,
-      );
-      expect(sliderNode, isNotNull);
-
-      void performSliderAction(ui.SemanticsAction action) {
-        tester.binding.performSemanticsAction(
-          ui.SemanticsActionEvent(
-            type: action,
-            viewId: tester.view.viewId,
-            nodeId: sliderNode!.id,
-          ),
-        );
+      final nodes = sliderNodes(tester);
+      expect(nodes, hasLength(3));
+      expect(nodes.map(summarizeNode).map((summary) => summary.label), [
+        'Minimum',
+        'Target',
+        'Maximum',
+      ]);
+      expect(nodes.map(summarizeNode).map((summary) => summary.value), [
+        '20%',
+        '50%',
+        '80%',
+      ]);
+      for (final summary in nodes.map(summarizeNode)) {
+        expect(summary.flags, containsAll(['isSlider', 'hasEnabledState']));
+        expect(summary.flags, contains('isEnabled'));
+        expect(summary.actions, containsAll(['focus', 'increase', 'decrease']));
       }
+      handle.dispose();
+    });
 
-      performSliderAction(ui.SemanticsAction.increase);
-      await tester.pump();
-      performSliderAction(ui.SemanticsAction.decrease);
-      await tester.pump();
-
-      expect(reportedValues, [closeTo(0.6, 0.0001), closeTo(0.4, 0.0001)]);
-
-      reportedValues.clear();
+    testWidgets('each thumb uses its own semantic formatter', (tester) async {
+      final handle = tester.ensureSemantics();
       await tester.pumpWidget(
-        _buildTestApp(
-          NakedSlider(
-            value: 0.95,
-            min: 0,
-            max: 1,
-            keyboardStep: 0.1,
-            onChanged: reportedValues.add,
-            child: const SizedBox(width: 200, height: 40),
+        testApp(
+          values: const [20, 80],
+          step: 10,
+          formatters: [
+            (value) => 'From ${value.round()} dollars',
+            (value) => 'To ${value.round()} dollars',
+          ],
+          onChanged: (_) {},
+        ),
+      );
+
+      final summaries = sliderNodes(tester).map(summarizeNode).toList();
+      expect(summaries[0].value, 'From 20 dollars');
+      expect(summaries[0].increasedValue, 'From 30 dollars');
+      expect(summaries[0].decreasedValue, 'From 10 dollars');
+      expect(summaries[1].value, 'To 80 dollars');
+      expect(summaries[1].increasedValue, 'To 90 dollars');
+      expect(summaries[1].decreasedValue, 'To 70 dollars');
+      handle.dispose();
+    });
+
+    testWidgets('disabled thumbs expose values without actions', (
+      tester,
+    ) async {
+      final handle = tester.ensureSemantics();
+      await tester.pumpWidget(
+        testApp(values: const [25, 75], enabled: false, onChanged: (_) {}),
+      );
+
+      final summaries = sliderNodes(tester).map(summarizeNode).toList();
+      expect(summaries, hasLength(2));
+      for (final summary in summaries) {
+        expect(summary.flags, containsAll(['isSlider', 'hasEnabledState']));
+        expect(summary.flags, isNot(contains('isEnabled')));
+        expect(summary.actions, isEmpty);
+      }
+      handle.dispose();
+    });
+
+    testWidgets('focus state belongs only to the focused thumb', (
+      tester,
+    ) async {
+      final handle = tester.ensureSemantics();
+      final first = FocusNode();
+      final second = FocusNode();
+      addTearDown(first.dispose);
+      addTearDown(second.dispose);
+      await tester.pumpWidget(
+        testApp(
+          values: const [25, 75],
+          focusNodes: [first, second],
+          onChanged: (_) {},
+        ),
+      );
+
+      second.requestFocus();
+      await tester.pump();
+
+      final summaries = sliderNodes(tester).map(summarizeNode).toList();
+      expect(summaries[0].flags, isNot(contains('isFocused')));
+      expect(summaries[1].flags, contains('isFocused'));
+      handle.dispose();
+    });
+
+    testWidgets('boundary thumbs omit impossible semantic actions', (
+      tester,
+    ) async {
+      final handle = tester.ensureSemantics();
+      await tester.pumpWidget(
+        testApp(values: const [0, 100], onChanged: (_) {}),
+      );
+
+      final summaries = sliderNodes(tester).map(summarizeNode).toList();
+      expect(summaries[0].actions, isNot(contains('decrease')));
+      expect(summaries[0].decreasedValue, isNull);
+      expect(summaries[1].actions, isNot(contains('increase')));
+      expect(summaries[1].increasedValue, isNull);
+      handle.dispose();
+    });
+
+    testWidgets('minimum spacing suppresses blocked semantic actions', (
+      tester,
+    ) async {
+      final handle = tester.ensureSemantics();
+      await tester.pumpWidget(
+        testApp(values: const [40, 50], minSpacing: 10, onChanged: (_) {}),
+      );
+
+      final summaries = sliderNodes(tester).map(summarizeNode).toList();
+      expect(summaries[0].actions, isNot(contains('increase')));
+      expect(summaries[1].actions, isNot(contains('decrease')));
+      handle.dispose();
+    });
+
+    testWidgets('semantic action changes only its target thumb', (
+      tester,
+    ) async {
+      final handle = tester.ensureSemantics();
+      var values = <double>[20, 80];
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: StatefulBuilder(
+              builder: (context, setState) => NakedSlider(
+                values: values,
+                step: 5,
+                onChanged: (next) =>
+                    setState(() => values = List<double>.of(next)),
+                child: const SizedBox(width: 240, height: 48),
+              ),
+            ),
           ),
         ),
       );
-      root = tester.getSemantics(find.byType(Scaffold));
-      sliderNode = findSemanticsNode(
-        root,
-        (node) => node.getSemanticsData().flagsCollection.isSlider,
-      );
-      expect(sliderNode, isNotNull);
 
-      performSliderAction(ui.SemanticsAction.increase);
+      var nodes = sliderNodes(tester);
+      performAction(tester, nodes[1], ui.SemanticsAction.decrease);
       await tester.pump();
+      expect(values, [20, 75]);
 
-      expect(reportedValues, [1.0]);
+      nodes = sliderNodes(tester);
+      performAction(tester, nodes[0], ui.SemanticsAction.increase);
+      await tester.pump();
+      expect(values, [25, 75]);
+      handle.dispose();
+    });
 
+    testWidgets('excludeSemantics hides every thumb node', (tester) async {
+      final handle = tester.ensureSemantics();
+      await tester.pumpWidget(
+        testApp(
+          values: const [25, 75],
+          excludeSemantics: true,
+          onChanged: (_) {},
+        ),
+      );
+
+      expect(sliderNodes(tester), isEmpty);
       handle.dispose();
     });
   });

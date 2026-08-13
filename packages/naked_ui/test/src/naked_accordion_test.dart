@@ -1,4 +1,7 @@
+import 'dart:ui' show PointerDeviceKind;
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:naked_ui/naked_ui.dart';
 
@@ -153,6 +156,235 @@ void main() {
       // Now the child should be built and capturedState should be set
       expect(capturedState, isNotNull);
       expect(capturedState!.isExpanded, isTrue);
+    });
+  });
+
+  group('Item Builder', () {
+    testWidgets('wraps the complete item in one authoritative state scope', (
+      tester,
+    ) async {
+      final controller = NakedAccordionController<String>();
+      addTearDown(controller.dispose);
+      WidgetStatesController? triggerStates;
+      WidgetStatesController? panelStates;
+      WidgetStatesController? itemStates;
+
+      await tester.pumpMaterialWidget(
+        NakedAccordionGroup<String>(
+          controller: controller,
+          initialExpandedValues: const ['item'],
+          child: NakedAccordion<String>(
+            value: 'item',
+            builder: (context, state) {
+              triggerStates = NakedAccordionItemState.controllerOf<String>(
+                context,
+              );
+              return const Text('Trigger');
+            },
+            itemBuilder: (context, state, child) {
+              itemStates = NakedAccordionItemState.controllerOf<String>(
+                context,
+              );
+              return KeyedSubtree(key: const Key('item'), child: child!);
+            },
+            child: Builder(
+              builder: (context) {
+                panelStates = NakedAccordionItemState.controllerOf<String>(
+                  context,
+                );
+                return const Text('Panel');
+              },
+            ),
+          ),
+        ),
+      );
+
+      final item = find.byKey(const Key('item'));
+      expect(
+        find.descendant(of: item, matching: find.text('Trigger')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: item, matching: find.text('Panel')),
+        findsOneWidget,
+      );
+      expect(triggerStates, same(itemStates));
+      expect(panelStates, same(itemStates));
+    });
+
+    testWidgets('keeps authoritative hover state when disabled in place', (
+      tester,
+    ) async {
+      var enabled = true;
+      late StateSetter rebuild;
+      NakedAccordionItemState<String>? latestState;
+      WidgetStatesController? itemStates;
+      WidgetStatesController? observedController;
+      var controllerNotifications = 0;
+      final resolvedControllers = <WidgetStatesController>{};
+      final controller = NakedAccordionController<String>();
+      addTearDown(controller.dispose);
+
+      void countControllerNotification() => controllerNotifications++;
+
+      addTearDown(() {
+        observedController?.removeListener(countControllerNotification);
+      });
+
+      await tester.pumpMaterialWidget(
+        StatefulBuilder(
+          builder: (context, setState) {
+            rebuild = setState;
+            return NakedAccordionGroup<String>(
+              controller: controller,
+              child: NakedAccordion<String>(
+                enabled: enabled,
+                value: 'item',
+                builder: (_, _) => const SizedBox(
+                  key: Key('trigger'),
+                  width: 100,
+                  height: 40,
+                  child: Text('Trigger'),
+                ),
+                itemBuilder: (context, state, child) {
+                  latestState = state;
+                  final scopedController =
+                      NakedAccordionItemState.controllerOf<String>(context);
+                  itemStates = scopedController;
+                  resolvedControllers.add(scopedController);
+                  if (observedController == null) {
+                    observedController = scopedController;
+                    scopedController.addListener(countControllerNotification);
+                  }
+                  return child!;
+                },
+                child: const Text('Panel'),
+              ),
+            );
+          },
+        ),
+      );
+
+      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      addTearDown(mouse.removePointer);
+      await mouse.addPointer();
+      await mouse.moveTo(tester.getCenter(find.byKey(const Key('trigger'))));
+      await tester.pump();
+      expect(latestState!.isHovered, isTrue);
+      expect(controllerNotifications, greaterThan(0));
+      expect(resolvedControllers, hasLength(1));
+
+      final notificationsBeforeDisable = controllerNotifications;
+      rebuild(() => enabled = false);
+      await tester.pump();
+      expect(latestState!.isHovered, isTrue);
+      expect(latestState!.isDisabled, isTrue);
+      expect(
+        itemStates!.value,
+        containsAll(<WidgetState>{WidgetState.hovered, WidgetState.disabled}),
+      );
+      expect(controllerNotifications, greaterThan(notificationsBeforeDisable));
+      expect(resolvedControllers, hasLength(1));
+
+      final notificationsBeforeEnable = controllerNotifications;
+      rebuild(() => enabled = true);
+      await tester.pump();
+      expect(latestState!.isHovered, isTrue);
+      expect(latestState!.isDisabled, isFalse);
+      expect(itemStates!.value, contains(WidgetState.hovered));
+      expect(itemStates!.value, isNot(contains(WidgetState.disabled)));
+      expect(controllerNotifications, greaterThan(notificationsBeforeEnable));
+      expect(resolvedControllers, hasLength(1));
+    });
+
+    testWidgets('reports pressed state without requiring a callback', (
+      tester,
+    ) async {
+      var enabled = true;
+      late StateSetter rebuild;
+      NakedAccordionItemState<String>? latestState;
+      final controller = NakedAccordionController<String>();
+      addTearDown(controller.dispose);
+
+      await tester.pumpMaterialWidget(
+        StatefulBuilder(
+          builder: (context, setState) {
+            rebuild = setState;
+            return NakedAccordionGroup<String>(
+              controller: controller,
+              child: NakedAccordion<String>(
+                enabled: enabled,
+                value: 'item',
+                builder: (_, _) => const Text('Trigger'),
+                itemBuilder: (_, state, child) {
+                  latestState = state;
+                  return child!;
+                },
+                child: const Text('Panel'),
+              ),
+            );
+          },
+        ),
+      );
+
+      final press = await tester.startGesture(
+        tester.getCenter(find.text('Trigger')),
+      );
+      await tester.pump();
+      expect(latestState!.isPressed, isTrue);
+
+      rebuild(() => enabled = false);
+      await tester.pump();
+      expect(latestState!.isPressed, isFalse);
+      expect(latestState!.isDisabled, isTrue);
+
+      await press.up();
+      await tester.pump();
+    });
+
+    testWidgets('preserves panel transitions and keyboard activation', (
+      tester,
+    ) async {
+      final controller = NakedAccordionController<String>();
+      final focusNode = FocusNode();
+      addTearDown(controller.dispose);
+      addTearDown(focusNode.dispose);
+      NakedAccordionItemState<String>? latestState;
+
+      await tester.pumpMaterialWidget(
+        NakedAccordionGroup<String>(
+          controller: controller,
+          child: NakedAccordion<String>(
+            value: 'item',
+            focusNode: focusNode,
+            builder: (_, _) => const Text('Trigger'),
+            transitionBuilder: (panel) =>
+                KeyedSubtree(key: const Key('transition'), child: panel),
+            itemBuilder: (_, state, child) {
+              latestState = state;
+              return KeyedSubtree(key: const Key('item'), child: child!);
+            },
+            child: const Text('Panel'),
+          ),
+        ),
+      );
+
+      focusNode.requestFocus();
+      await tester.pump();
+      expect(latestState!.isFocused, isTrue);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pump();
+
+      expect(latestState!.isExpanded, isTrue);
+      expect(find.text('Panel'), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('item')),
+          matching: find.byKey(const Key('transition')),
+        ),
+        findsOneWidget,
+      );
     });
   });
 

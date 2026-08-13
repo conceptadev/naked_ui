@@ -14,7 +14,7 @@ Headless button component. Handles click interactions, keyboard navigation, and 
 - **Custom designs**: When standard button styles don't match your design system
 
 <Info>
-  You can find this example in our [GitHub repository](https://github.com/btwld/naked_ui/blob/main/example/lib/api/naked_button.0.dart).
+  You can find this example in our [GitHub repository](https://github.com/btwld/naked_ui/blob/main/packages/example/lib/api/naked_button.0.dart).
 </Info>
 ## Basic implementation
 
@@ -170,6 +170,7 @@ const NakedButton({
   this.focusOnPress = false,
   this.tooltip,
   this.semanticLabel,
+  this.excludeSemantics = false,
 })
 ```
 
@@ -183,6 +184,9 @@ Called when the button is tapped or activated via keyboard. If null, the button 
 
 #### onLongPress → `VoidCallback?`
 Called when the button is long pressed.
+
+#### excludeSemantics → `bool`
+Whether to hide the button and its descendants from accessibility services. Defaults to false.
 
 #### onHoverChange → `ValueChanged<bool>?`
 Called when hover state changes. Provides the current hover state (true when hovered, false otherwise). **Note**: This is legacy - prefer using the `builder` pattern to access `state.isHovered`.

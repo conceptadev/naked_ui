@@ -15,10 +15,11 @@ import 'utilities/intents.dart';
 /// action and for testing every supported cancellation path.
 ///
 /// An attached and focusable [initialFocusNode] receives focus after the route
-/// opens. Otherwise the first traversable descendant receives focus. The node
-/// remains owned by the caller and is never disposed by Naked UI. For
-/// irreversible work, prefer the least destructive action; long structured
-/// content may instead use a non-action focus target near its beginning.
+/// opens. Otherwise a descendant autofocus request is honored, falling back to
+/// the first traversable descendant. The node remains owned by the caller and
+/// is never disposed by Naked UI. For irreversible work, prefer the least
+/// destructive action; long structured content may instead use a non-action
+/// focus target near its beginning.
 Future<T?> showNakedAlertDialog<T>({
   required BuildContext context,
   required WidgetBuilder builder,
@@ -136,7 +137,7 @@ class _NakedAlertDialogFocusState extends State<_NakedAlertDialogFocus> {
       if (firstFocus != null &&
           firstFocus != scope &&
           firstFocus.canRequestFocus) {
-        firstFocus.requestFocus();
+        scope.autofocus(firstFocus);
       }
     });
   }

@@ -1,4 +1,93 @@
-## Unreleased
+## 1.0.0-beta.10
+
+### Features
+
+- Add `NakedAccordion.itemBuilder` for styling a trigger and panel as one unit.
+  It receives the same `NakedAccordionItemState` as the trigger builder plus the
+  fully assembled item as its child, and its context resolves
+  `NakedAccordionItemState.controllerOf` to the authoritative controller shared
+  with the trigger and panel.
+
+### Fixes
+
+- Track `NakedAccordion` press state whenever the item is enabled instead of
+  only when `onPressChange` is supplied, so `WidgetState.pressed` reaches
+  builders without a callback, and clear the pressed state when the item
+  becomes disabled.
+
+## 1.0.0-beta.9
+
+### Fixes
+
+- Keep `NakedTextField`'s `WidgetState.pressed`, `onTapChange`, and
+  `onPressChange` synchronized when selection gestures take over; block
+  disabled pointer and selection paths, and defer lifecycle cleanup callbacks
+  to avoid rebuilding while the widget tree is locked.
+- Mark `NakedToggleOption` semantics as part of a mutually exclusive group,
+  matching Flutter's segmented-control contract for enabled, selected, and
+  disabled options.
+
+## 1.0.0-beta.8
+
+### Fixes
+
+- Preserve tooltip overlay semantics when `semanticLabel` is absent or blank,
+  while continuing to avoid duplicate announcements when a non-empty label
+  represents the content on the trigger. Explicit semantics overrides remain
+  authoritative.
+
+## 1.0.0-beta.7
+
+### Features
+
+- Add `NakedSliderState.visualPercentageOf` for mapping arbitrary logical
+  fractions to physical track alignment across orientation, text direction,
+  and inversion, while preserving `visualPercentageAt` thumb placement.
+
+## 1.0.0-beta.6
+
+### Fixes
+
+- Make `NakedTextField` honor ambient `DefaultSelectionStyle` cursor and
+  selection colors, including context-resolved `CupertinoDynamicColor`
+  variants, while preserving explicit cursor precedence, focus gating, and
+  platform fallbacks.
+
+### Maintenance
+
+- Point package metadata at the canonical `conceptadev/naked_ui` repository.
+
+## 1.0.0-beta.5
+
+### Breaking changes
+
+- Replace alignment-pair overlay positioning with a Radix-shaped
+  `OverlayPositionConfig`: side, logical alignment, signed side/alignment
+  offsets, collision padding, collision avoidance, and a resolved
+  `OverlayPlacement` available to overlay descendants after flip or shift.
+- Change `NakedSlider` from one `double value` to a nonempty, ordered
+  `List<double> values`. Callbacks are list-valued; defaults are now `min=0`,
+  `max=100`, and `step=1`. The slider supports arbitrary thumb counts,
+  orientation, inversion, minimum spacing, nearest-thumb pointer selection,
+  non-crossing constraints, and per-thumb focus, labels, formatters, and
+  semantics actions.
+
+### Features and behavior changes
+
+- Add controlled `open` / `onOpenChanged` contracts to Select and Tooltip.
+  Controlled owners may accept or reject trigger, selection, Escape, outside
+  tap, hover, focus, and touch requests without transient visual mutation.
+- Keep Tooltip open while either its trigger or overlay content is hovered,
+  with an opt-out through `disableHoverableContent`; expose the final
+  collision-resolved placement to tooltip content.
+- Add separate keyed Popover anchors and automatic/manual Tabs activation.
+- Add controlled menu checkbox items and typed radio groups/items with checked
+  roles and mutually-exclusive semantics.
+- Add recursively composable submenus with delayed hover handoff, LTR/RTL
+  open/close arrows, Escape handling, sibling coordination, root dismissal,
+  first-item focus, and trigger-focus restoration.
+
+## 1.0.0-beta.4
 
 ### Features
 
@@ -23,6 +112,13 @@
   closed-loop traversal, and caller-owned focus-node handling. Dismissible
   barriers require a non-empty localized label. Existing `NakedDialog` and
   `showNakedDialog` defaults remain unchanged.
+
+### Behavior changes
+
+- Migrate `NakedToggleGroup` options from independent Tab stops to one
+  roving-focus stop: Tab enters and exits once, arrows and Home/End move focus
+  without selecting, activation proposes the controlled value, and disabled or
+  dynamically removed options repair focus within the group.
 
 ## 1.0.0-beta.3
 

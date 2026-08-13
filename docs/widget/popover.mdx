@@ -14,7 +14,7 @@ Headless popover component. Handles positioning, focus management, outside dismi
 - **Content previews**: Preview links, images, or documents
 
 <Info>
-  Explore the sample in [`example/lib/api/naked_popover.0.dart`](https://github.com/btwld/naked_ui/blob/main/example/lib/api/naked_popover.0.dart).
+  Explore the sample in [`packages/example/lib/api/naked_popover.0.dart`](https://github.com/btwld/naked_ui/blob/main/packages/example/lib/api/naked_popover.0.dart).
 </Info>
 
 ## Basic implementation
@@ -155,6 +155,8 @@ const NakedPopover({
   this.onOpenRequested,
   this.onCloseRequested,
   this.controller,
+  this.semanticLabel,
+  this.excludeSemantics = false,
 })
 ```
 
@@ -167,6 +169,8 @@ const NakedPopover({
 - `consumeOutsideTaps` / `useRootOverlay` → control gesture capture and overlay target
 - `triggerFocusNode` → provide an external `FocusNode` for restoring focus after close
 - Lifecycle hooks: `onOpen`, `onClose`, `onOpenRequested`, `onCloseRequested`
+- `semanticLabel` → provide an accessible name for the popover trigger
+- `excludeSemantics` → hide the popover trigger subtree from the semantic tree; opened popover content remains exposed
 
 ## Behaviour & Accessibility
 

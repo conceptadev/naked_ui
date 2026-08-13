@@ -20,15 +20,15 @@ The complete documentation covers detailed component APIs and examples, guides a
 - NakedLink — native Link navigation, semantics, and Enter-only activation
 - NakedCheckbox — toggle behavior and semantics
 - NakedRadio — single‑select radio with group management
-- NakedSelect — dropdown/select with keyboard navigation
-- NakedSlider — value slider with drag + keys
+- NakedSelect — controlled/uncontrolled dropdown with keyboard navigation
+- NakedSlider — arbitrary multi-thumb slider with per-thumb focus + semantics
 - NakedToggle — toggle button or switch behavior
 - NakedTabs — tablist + roving focus
 - NakedAccordion — expandable/collapsible sections
-- NakedMenu — anchored overlay menu
+- NakedMenu — anchored menu with checkbox/radio items + recursive submenus
 - NakedDialog — normal and alert dialog semantics + modal focus trap
-- NakedTooltip — anchored tooltip with lifecycle
-- NakedPopover — anchored, dismissible popover overlay
+- NakedTooltip — controlled, hoverable, collision-aware tooltip
+- NakedPopover — anchored, dismissible overlay with optional separate anchor
 
 ## Basic Usage Pattern
 

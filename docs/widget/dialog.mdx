@@ -15,9 +15,7 @@ Headless dialog component. Handles focus management, backdrop interaction, and a
 - **Custom modals**: When standard dialog styles don't match your design
 
 <Info>
-  Examples: 
-  - Basic: https://github.com/btwld/naked_ui/blob/main/example/lib/api/naked_dialog.0.dart
-  - Transitions: https://github.com/btwld/naked_ui/blob/main/example/lib/api/naked_dialog.1.dart
+  See the complete example in [`packages/example/lib/api/naked_dialog.0.dart`](https://github.com/btwld/naked_ui/blob/main/packages/example/lib/api/naked_dialog.0.dart).
 </Info>
 
 ## Basic implementation
@@ -128,7 +126,7 @@ Future<T?> showNakedAlertDialog<T>({
 ```
 
 - semanticLabel: Required, non-empty, caller-localized alert-dialog name.
-- initialFocusNode: Optional caller-owned safe target. The first traversable descendant is used when it is absent or unusable.
+- initialFocusNode: Optional caller-owned safe target. When it is absent or unusable, descendant autofocus is honored before falling back to the first traversable descendant.
 - barrierDismissible: Outside taps are inert by default. When enabled, `barrierLabel` must be non-empty and localized.
 - Escape and platform Back: Always cancel safely with a null result.
 - Focus always enters the alert, loops inside, and returns to a surviving invoker when the route closes.

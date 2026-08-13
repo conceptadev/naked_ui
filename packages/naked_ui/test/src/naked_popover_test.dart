@@ -259,8 +259,7 @@ void main() {
         Center(
           child: NakedPopover(
             positioning: const OverlayPositionConfig(
-              targetAnchor: Alignment.bottomCenter,
-              followerAnchor: Alignment.topCenter,
+              alignment: OverlayAlignment.center,
             ),
             popoverBuilder: (context, info) => const SizedBox(
               key: popoverKey,
@@ -289,6 +288,58 @@ void main() {
       final triggerBottom = tester.getBottomLeft(find.byKey(triggerKey)).dy;
       final popoverTop = tester.getTopLeft(find.byKey(popoverKey)).dy;
       expect(popoverTop, _closeTo(triggerBottom));
+    });
+
+    testWidgets('can position against a separate keyed anchor', (tester) async {
+      final anchorKey = GlobalKey();
+      const triggerKey = Key('separate-trigger');
+      const popoverKey = Key('separate-popover');
+      Rect? builderAnchorRect;
+
+      await tester.pumpMaterialWidget(
+        Stack(
+          children: [
+            Positioned(
+              left: 80,
+              top: 60,
+              child: SizedBox(key: anchorKey, width: 120, height: 40),
+            ),
+            Positioned(
+              left: 300,
+              top: 160,
+              child: NakedPopover(
+                anchorKey: anchorKey,
+                positioning: const OverlayPositionConfig(
+                  avoidCollisions: false,
+                ),
+                popoverBuilder: (context, info) {
+                  builderAnchorRect = info.anchorRect;
+                  return const SizedBox(
+                    key: popoverKey,
+                    width: 80,
+                    height: 30,
+                    child: Text('Separate content'),
+                  );
+                },
+                child: const SizedBox(
+                  key: triggerKey,
+                  width: 40,
+                  height: 30,
+                  child: Text('Separate trigger'),
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+
+      await tester.tap(find.byKey(triggerKey));
+      await tester.pumpAndSettle();
+
+      final anchorRect = tester.getRect(find.byKey(anchorKey));
+      final popoverRect = tester.getRect(find.byKey(popoverKey));
+      expect(builderAnchorRect, anchorRect);
+      expect(popoverRect.topLeft, anchorRect.bottomLeft);
     });
 
     testWidgets('outside tap: true swallows, false propagates', (tester) async {

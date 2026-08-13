@@ -12,7 +12,7 @@ extension SliderTestHelpers on WidgetTester {
 
     // Calculate current position based on current value
     final currentNormalizedValue =
-        (slider.value - slider.min) / (slider.max - slider.min);
+        (slider.values.first - slider.min) / (slider.max - slider.min);
     final currentOffset = Offset(
       rect.left + (box.width * currentNormalizedValue),
       center.dy,
@@ -42,7 +42,7 @@ extension SliderTestHelpers on WidgetTester {
     double tolerance = 0.01,
   }) {
     final slider = widget<NakedSlider>(finder);
-    expect(slider.value, closeTo(expected, tolerance));
+    expect(slider.values.first, closeTo(expected, tolerance));
   }
 
   /// Send keyboard arrow keys to slider as a full press (down+up).

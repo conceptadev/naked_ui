@@ -208,5 +208,75 @@ void main() {
 
       handle.dispose();
     });
+
+    testWidgets('itemBuilder preserves disclosure semantics', (tester) async {
+      final handle = tester.ensureSemantics();
+      final controller = NakedAccordionController<String>();
+      addTearDown(controller.dispose);
+      var enabled = true;
+      late StateSetter rebuild;
+
+      await tester.pumpWidget(
+        _buildTestApp(
+          StatefulBuilder(
+            builder: (context, setState) {
+              rebuild = setState;
+              return NakedAccordionGroup<String>(
+                controller: controller,
+                initialExpandedValues: const ['item'],
+                child: NakedAccordion<String>(
+                  value: 'item',
+                  enabled: enabled,
+                  semanticLabel: 'Header',
+                  builder: (_, _) => const Text('Header'),
+                  itemBuilder: (_, _, child) =>
+                      KeyedSubtree(key: const Key('item'), child: child!),
+                  child: const Text('Body'),
+                ),
+              );
+            },
+          ),
+        ),
+      );
+
+      expect(
+        tester.getSemantics(find.text('Header')),
+        matchesSemantics(
+          label: 'Header',
+          isButton: true,
+          hasEnabledState: true,
+          isEnabled: true,
+          isFocusable: true,
+          hasExpandedState: true,
+          isExpanded: true,
+          hasTapAction: true,
+          hasFocusAction: true,
+        ),
+      );
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('item')),
+          matching: find.text('Body'),
+        ),
+        findsOneWidget,
+      );
+
+      rebuild(() => enabled = false);
+      await tester.pump();
+
+      expect(
+        tester.getSemantics(find.text('Header')),
+        matchesSemantics(
+          label: 'Header',
+          isButton: true,
+          hasEnabledState: true,
+          isEnabled: false,
+          hasExpandedState: true,
+          isExpanded: true,
+        ),
+      );
+
+      handle.dispose();
+    });
   });
 }

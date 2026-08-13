@@ -14,7 +14,7 @@ Headless checkbox component. Handles toggle behavior, keyboard activation, and a
 - **Agreement confirmations**: Terms of service, privacy policies
 
 <Info>
-  See complete examples in our [GitHub repository](https://github.com/btwld/naked_ui/blob/main/example/lib/api/naked_checkbox.0.dart).
+  See complete examples in our [GitHub repository](https://github.com/btwld/naked_ui/blob/main/packages/example/lib/api/naked_checkbox.0.dart).
 </Info>
 
 ## Basic implementation
@@ -105,6 +105,7 @@ const NakedCheckbox({
   this.onPressChange,
   this.builder,
   this.semanticLabel,
+  this.excludeSemantics = false,
 })
 ```
 
@@ -117,6 +118,7 @@ const NakedCheckbox({
 - `child` → static child when you do not need the builder
 - interaction callbacks: `onFocusChange`, `onHoverChange`, `onPressChange`
 - `semanticLabel` → accessible name announced by screen readers
+- `excludeSemantics` → hide the checkbox and its descendants from the semantic tree
 
 ## Accessibility Notes
 

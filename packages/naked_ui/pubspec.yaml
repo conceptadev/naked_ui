@@ -1,10 +1,10 @@
 name: naked_ui
 description: A library of behavior-first UI components for Flutter that separate state from presentation.
-repository: https://github.com/btwld/naked_ui
-documentation: https://docs.page/btwld/naked_ui
-issue_tracker: https://github.com/btwld/naked_ui/issues
+repository: https://github.com/conceptadev/naked_ui
+documentation: https://docs.page/conceptadev/naked_ui
+issue_tracker: https://github.com/conceptadev/naked_ui/issues
 license: BSD-3-Clause
-version: 1.0.0-beta.3
+version: 1.0.0-beta.10
 resolution: workspace
 
 environment:

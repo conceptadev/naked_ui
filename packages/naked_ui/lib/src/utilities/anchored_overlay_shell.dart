@@ -19,10 +19,12 @@ class AnchoredOverlayShell extends StatelessWidget {
     this.onClose,
     this.onOpenRequested,
     this.onCloseRequested,
+    this.onDismissRequested,
     this.consumeOutsideTaps = true,
     this.useRootOverlay = false,
     this.closeOnClickOutside = true,
     this.triggerFocusNode,
+    this.positioningAnchorKey,
     this.positioning = const OverlayPositionConfig(),
   });
 
@@ -47,6 +49,12 @@ class AnchoredOverlayShell extends StatelessWidget {
   /// Intercepts close requests. Call `hideOverlay` to actually hide.
   final RawMenuAnchorCloseRequestedCallback? onCloseRequested;
 
+  /// Handles user-initiated dismissal from Escape or an outside tap.
+  ///
+  /// Defaults to closing [controller]. Controlled overlays use this hook to
+  /// request a state change from their owner instead.
+  final VoidCallback? onDismissRequested;
+
   /// Whether taps outside should be consumed by the anchor region.
   final bool consumeOutsideTaps;
 
@@ -58,6 +66,10 @@ class AnchoredOverlayShell extends StatelessWidget {
 
   /// Focus node to return focus to on close.
   final FocusNode? triggerFocusNode;
+
+  /// Optional key for a widget that should anchor positioning instead of
+  /// [child]. The keyed widget may live anywhere in the same overlay subtree.
+  final GlobalKey? positioningAnchorKey;
 
   /// Positioning configuration for the overlay.
   final OverlayPositionConfig positioning;
@@ -83,6 +95,30 @@ class AnchoredOverlayShell extends StatelessWidget {
     }
   }
 
+  void _dismiss() {
+    final callback = onDismissRequested;
+    if (callback == null) {
+      controller.close();
+    } else {
+      callback();
+    }
+  }
+
+  Rect _resolveAnchorRect(BuildContext context, RawMenuOverlayInfo info) {
+    final anchorContext = positioningAnchorKey?.currentContext;
+    final anchorBox = anchorContext?.findRenderObject();
+    final overlayBox = Overlay.maybeOf(
+      context,
+      rootOverlay: useRootOverlay,
+    )?.context.findRenderObject();
+    if (anchorBox is! RenderBox || overlayBox is! RenderBox) {
+      return info.anchorRect;
+    }
+    final topLeft = anchorBox.localToGlobal(Offset.zero, ancestor: overlayBox);
+
+    return topLeft & anchorBox.size;
+  }
+
   @override
   Widget build(BuildContext context) {
     return RawMenuAnchor(
@@ -95,23 +131,30 @@ class AnchoredOverlayShell extends StatelessWidget {
       useRootOverlay: useRootOverlay,
       controller: controller,
       overlayBuilder: (context, info) {
-        final overlayChild = overlayBuilder(context, info);
+        final anchorRect = _resolveAnchorRect(context, info);
+        final resolvedInfo = anchorRect == info.anchorRect
+            ? info
+            : RawMenuOverlayInfo(
+                anchorRect: anchorRect,
+                overlaySize: info.overlaySize,
+                tapRegionGroupId: info.tapRegionGroupId,
+                position: info.position,
+              );
+        final overlayChild = overlayBuilder(context, resolvedInfo);
 
         return OverlayPositioner(
-          targetRect: info.anchorRect,
+          targetRect: anchorRect,
           positioning: positioning,
           child: TapRegion(
-            onTapOutside: closeOnClickOutside
-                ? (event) => controller.close()
-                : null,
-            groupId: info.tapRegionGroupId,
+            onTapOutside: closeOnClickOutside ? (event) => _dismiss() : null,
+            groupId: resolvedInfo.tapRegionGroupId,
             child: FocusScope(
               child: FocusTraversalGroup(
                 child: Shortcuts(
                   shortcuts: NakedIntentActions.menu.shortcuts,
                   child: Actions(
                     actions: NakedIntentActions.menu.actions(
-                      onDismiss: () => controller.close(),
+                      onDismiss: _dismiss,
                       onNextFocus: () => _moveFocus(forward: true),
                       onPreviousFocus: () => _moveFocus(forward: false),
                       onFirstFocus: () => _focusBoundary(last: false),

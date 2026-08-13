@@ -1,5 +1,8 @@
+import 'dart:ui' show Tristate;
+
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:naked_ui/naked_ui.dart';
@@ -285,6 +288,193 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Popover 2'), findsOneWidget);
+
+      handle.dispose();
+    });
+  });
+
+  group('NakedPopover expanded/collapsed semantics', () {
+    // Reads the disclosure state off the merged trigger node.
+    Tristate expandedOf(WidgetTester tester, String triggerText) => tester
+        .getSemantics(find.text(triggerText))
+        .getSemanticsData()
+        .flagsCollection
+        .isExpanded;
+
+    // AC: A closed component-owned trigger is a named, enabled, focusable button
+    // with a tap action, has an expanded state, and reports isExpanded == false.
+    testWidgets('closed trigger is a named, focusable, collapsed '
+        'expandable button (NakedButton path)', (tester) async {
+      final handle = tester.ensureSemantics();
+
+      await tester.pumpWidget(_buildTestApp(_buildNakedPopover()));
+
+      expect(
+        tester.getSemantics(find.text('Show Menu')),
+        matchesSemantics(
+          label: 'Show Menu',
+          isButton: true,
+          hasEnabledState: true,
+          isEnabled: true,
+          isFocusable: true,
+          hasExpandedState: true,
+          isExpanded: false,
+          hasTapAction: true,
+          hasFocusAction: true,
+        ),
+      );
+
+      handle.dispose();
+    });
+
+    // AC: After opening isExpanded == true; after Escape or outside-tap
+    // dismissal it reports isExpanded == false again.
+    testWidgets('expanded state follows tap open, escape, and outside-tap '
+        'dismissal', (tester) async {
+      final handle = tester.ensureSemantics();
+
+      await tester.pumpWidget(_buildTestApp(_buildNakedPopover()));
+
+      expect(expandedOf(tester, 'Show Menu'), Tristate.isFalse);
+
+      // Open via tap.
+      await tester.tap(find.text('Show Menu'));
+      await tester.pumpAndSettle();
+      expect(expandedOf(tester, 'Show Menu'), Tristate.isTrue);
+
+      // Close via Escape.
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      expect(expandedOf(tester, 'Show Menu'), Tristate.isFalse);
+
+      // Re-open, then close via outside tap.
+      await tester.tap(find.text('Show Menu'));
+      await tester.pumpAndSettle();
+      expect(expandedOf(tester, 'Show Menu'), Tristate.isTrue);
+
+      await tester.tapAt(const Offset(10, 10));
+      await tester.pumpAndSettle();
+      expect(expandedOf(tester, 'Show Menu'), Tristate.isFalse);
+
+      handle.dispose();
+    });
+
+    // AC: Controller-driven close reports isExpanded == false again.
+    testWidgets('controller open/close updates trigger expanded state', (
+      tester,
+    ) async {
+      final handle = tester.ensureSemantics();
+      final controller = MenuController();
+
+      await tester.pumpWidget(
+        _buildTestApp(
+          NakedPopover(
+            controller: controller,
+            popoverBuilder: (context, info) => const Text('Content'),
+            child: const Text('Show Menu'),
+          ),
+        ),
+      );
+
+      expect(expandedOf(tester, 'Show Menu'), Tristate.isFalse);
+
+      controller.open();
+      await tester.pumpAndSettle();
+      expect(expandedOf(tester, 'Show Menu'), Tristate.isTrue);
+
+      controller.close();
+      await tester.pumpAndSettle();
+      expect(expandedOf(tester, 'Show Menu'), Tristate.isFalse);
+
+      handle.dispose();
+    });
+
+    // AC: Both trigger construction paths have equivalent state semantics. This
+    // exercises the child-owned Focus path (child is a Focus with its own node).
+    testWidgets('child-owned Focus trigger exposes equivalent expanded state', (
+      tester,
+    ) async {
+      final handle = tester.ensureSemantics();
+      final focusNode = FocusNode();
+
+      await tester.pumpWidget(
+        _buildTestApp(
+          NakedPopover(
+            popoverBuilder: (context, info) => const Text('Content'),
+            child: Focus(focusNode: focusNode, child: const Text('Trigger')),
+          ),
+        ),
+      );
+
+      // Closed: an expandable button reporting collapsed, equivalent to the
+      // NakedButton path's state semantics.
+      final closed = tester
+          .getSemantics(find.text('Trigger'))
+          .getSemanticsData();
+      expect(closed.flagsCollection.isButton, isTrue);
+      expect(closed.hasAction(SemanticsAction.tap), isTrue);
+      expect(closed.flagsCollection.isExpanded, Tristate.isFalse);
+
+      // Open and close via the trigger's own tap toggle.
+      await tester.tap(find.text('Trigger'));
+      await tester.pumpAndSettle();
+      expect(expandedOf(tester, 'Trigger'), Tristate.isTrue);
+
+      await tester.tap(find.text('Trigger'));
+      await tester.pumpAndSettle();
+      expect(expandedOf(tester, 'Trigger'), Tristate.isFalse);
+
+      focusNode.dispose();
+      handle.dispose();
+    });
+
+    // AC: openOnTap: false does not gain controller-mutating expand/collapse
+    // actions; the trigger's activation policy stays caller-owned.
+    testWidgets('openOnTap: false exposes no expand/collapse actions or state', (
+      tester,
+    ) async {
+      final handle = tester.ensureSemantics();
+
+      await tester.pumpWidget(
+        _buildTestApp(
+          NakedPopover(
+            openOnTap: false,
+            popoverBuilder: (context, info) => const Text('Content'),
+            child: const Text('Trigger'),
+          ),
+        ),
+      );
+
+      final data = tester.getSemantics(find.text('Trigger')).getSemanticsData();
+      expect(data.hasAction(SemanticsAction.expand), isFalse);
+      expect(data.hasAction(SemanticsAction.collapse), isFalse);
+      // No component-owned disclosure state either; the caller owns the trigger.
+      expect(data.flagsCollection.isExpanded, Tristate.none);
+
+      handle.dispose();
+    });
+
+    // AC: excludeSemantics: true continues to suppress the component's
+    // semantics, including the new expanded state.
+    testWidgets('excludeSemantics suppresses trigger button and expanded '
+        'state', (tester) async {
+      final handle = tester.ensureSemantics();
+
+      await tester.pumpWidget(
+        _buildTestApp(
+          NakedPopover(
+            excludeSemantics: true,
+            popoverBuilder: (context, info) => const Text('Content'),
+            child: const Text('Show Menu'),
+          ),
+        ),
+      );
+
+      final data = tester
+          .getSemantics(find.text('Show Menu'))
+          .getSemanticsData();
+      expect(data.flagsCollection.isButton, isFalse);
+      expect(data.flagsCollection.isExpanded, Tristate.none);
 
       handle.dispose();
     });

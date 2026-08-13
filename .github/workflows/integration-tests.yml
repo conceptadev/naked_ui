@@ -96,6 +96,7 @@ jobs:
           test -s packages/example/build/integration_test_screenshots/link__long_text_200__macos__reference.png
           test -s packages/example/build/integration_test_screenshots/alert_dialog__open_safe_focus__macos__reference.png
           test -s packages/example/build/integration_test_screenshots/alert_dialog__long_message_200_text__macos__reference.png
+          test -s packages/example/build/integration_test_screenshots/toggle_group__roving_rtl__macos__reference.png
           test -s packages/example/build/integration_test_screenshots/manifest.json
 
       - name: Upload macOS integration evidence

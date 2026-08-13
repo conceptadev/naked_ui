@@ -35,6 +35,7 @@ void main() {
     bool tab1Enabled = true,
     bool tab2Enabled = true,
     bool maintainState = true,
+    NakedTabActivationMode activationMode = NakedTabActivationMode.automatic,
     ValueChanged<String>? onChangedSpy,
     VoidCallback? onEscapeSpy,
     Key? tab1Key,
@@ -65,6 +66,7 @@ void main() {
               selectedTabId: selected,
               enabled: groupEnabled,
               onChanged: handleChanged,
+              activationMode: activationMode,
               onEscapePressed: onEscapeSpy,
               child: Column(
                 children: [
@@ -278,6 +280,39 @@ void main() {
 
     // Selection should follow focus (tab2).
     expect(changes.last, 'tab2');
+  });
+
+  testWidgets('manual activation moves focus without selecting', (
+    tester,
+  ) async {
+    final changes = <String>[];
+    final tab1 = UniqueKey();
+    final tab2 = UniqueKey();
+
+    await tester.pumpWidget(
+      _harness(
+        initialSelected: 'tab1',
+        activationMode: NakedTabActivationMode.manual,
+        onChangedSpy: changes.add,
+        tab1Key: tab1,
+        tab2Key: tab2,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(tab1));
+    await tester.pump();
+    changes.clear();
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+    await tester.pump();
+
+    expect(changes, isEmpty);
+    expect(FocusManager.instance.primaryFocus?.hasPrimaryFocus, isTrue);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pump();
+    expect(changes, ['tab2']);
   });
 
   testWidgets('controller changes rebuild tabs and panels', (tester) async {
@@ -1294,7 +1329,7 @@ void main() {
 
       // Settle past the tap's focus follow-up: the press must notify once,
       // not once from the tap and again when focus lands.
-      await tester.tap(find.byKey(const Key('tab2')));
+      await tester.tapAt(tester.getCenter(find.byKey(const Key('tab2'))));
       await tester.pumpAndSettle();
 
       expect(notifications, 1);

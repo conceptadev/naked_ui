@@ -137,7 +137,7 @@ void main() {
 
     testWidgets('NakedSlider respects excludeSemantics', (tester) async {
       final semanticsHandle = tester.ensureSemantics();
-      double value = 0.5;
+      var values = <double>[50];
 
       // Test with excludeSemantics: false (default)
       await tester.pumpWidget(
@@ -145,9 +145,9 @@ void main() {
           home: Scaffold(
             body: StatefulBuilder(
               builder: (context, setState) => NakedSlider(
-                value: value,
-                onChanged: (v) => setState(() => value = v),
-                semanticLabel: 'Test Slider',
+                values: values,
+                onChanged: (next) => setState(() => values = next),
+                semanticLabels: const ['Test Slider'],
                 child: Container(height: 50, color: Colors.blue),
               ),
             ),
@@ -163,9 +163,9 @@ void main() {
           home: Scaffold(
             body: StatefulBuilder(
               builder: (context, setState) => NakedSlider(
-                value: value,
-                onChanged: (v) => setState(() => value = v),
-                semanticLabel: 'Test Slider',
+                values: values,
+                onChanged: (next) => setState(() => values = next),
+                semanticLabels: const ['Test Slider'],
                 excludeSemantics: true,
                 child: Container(height: 50, color: Colors.blue),
               ),

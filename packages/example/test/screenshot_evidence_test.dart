@@ -81,4 +81,25 @@ void main() {
       'alert_dialog__long_message_200_text__macos__reference.png',
     );
   });
+
+  test('toggle group evidence uses required native artifact names', () {
+    expect(
+      ScreenshotEvidence(
+        component: 'toggle_group',
+        scenario: 'roving_rtl',
+        direction: 'RTL',
+      ).artifactNameFor('macos'),
+      'toggle_group__roving_rtl__macos__reference.png',
+    );
+    final verticalDisabled = ScreenshotEvidence(
+      component: 'toggle_group',
+      scenario: 'vertical_disabled',
+      textScale: 2,
+    );
+    expect(
+      verticalDisabled.artifactNameFor('android'),
+      'toggle_group__vertical_disabled__android__reference.png',
+    );
+    expect(verticalDisabled.manifestEntryFor('android')['textScale'], 2.0);
+  });
 }

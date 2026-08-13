@@ -6,15 +6,21 @@ keywords: [flutter, toggle, switch, button, headless, accessibility, widgetstate
 
 Headless toggle component. Handles binary state management and accessibility with configurable semantics. Use builder pattern for custom styling.
 
-## When to use this
+## Choose the right control
 
-- **Toolbar toggles**: Bold, italic, underline buttons in editors
-- **View toggles**: Switch between list/grid views
-- **Feature toggles**: Turn features on/off with button-like appearance
-- **Multi-state controls**: When you need both button and switch semantics
+| Interaction need | Use | Why |
+| --- | --- | --- |
+| Switch visible content | `NakedTabs`, `NakedTabBar`, and `NakedTabView` | Tabs own both selection and the associated visible panel. |
+| Capture one exclusive form value | Flutter `RadioGroup` with `NakedRadio` | Radio semantics communicate one choice from a labeled set. |
+| Run independently combinable commands | Standalone `NakedToggle`s | Each command, such as Bold, Italic, or Underline, keeps its own boolean state. |
+| Preserve existing single-select segmented-button behavior | `NakedToggleGroup` with `NakedToggleOption` | The current group is a controlled, single-value compatibility component with roving focus. |
+
+> **Selection model:** multiple/set/`toggled` mode is not shipped. `NakedToggleGroup` accepts one controlled `selectedValue`; it does not provide a multiple-selection value set or per-option toggle semantics.
+
+Use a standalone `NakedToggle` for button-like feature switches and toolbar commands. Set `asSwitch` when the same boolean state should use switch semantics.
 
 <Info>
-  Complete runnable examples live in [`example/lib/api/naked_toggle.0.dart`](https://github.com/btwld/naked_ui/blob/main/example/lib/api/naked_toggle.0.dart).
+  Complete runnable examples live in [`packages/example/lib/api/naked_toggle.0.dart`](https://github.com/btwld/naked_ui/blob/main/packages/example/lib/api/naked_toggle.0.dart).
 </Info>
 
 ## Basic implementation
@@ -166,6 +172,7 @@ const NakedToggle({
   this.builder,
   this.semanticLabel,
   this.asSwitch = false,
+  this.excludeSemantics = false,
 })
 ```
 
@@ -182,10 +189,11 @@ const NakedToggle({
 - `focusNode`, `autofocus`: focus management options
 - interaction callbacks: `onFocusChange`, `onHoverChange`, `onPressChange`
 - `semanticLabel` → `String?`: accessibility label, especially important when no text label is visible
+- `excludeSemantics` → `bool`: hide the toggle and its descendants from the semantic tree
 
-## Toggle Groups & Segmented Controls
+## Single-select Toggle Group Compatibility
 
-Combine `NakedToggleGroup` and `NakedToggleOption` for radio-like segmented controls:
+`NakedToggleGroup` preserves the existing single-select segmented-button contract. The deliberately exclusive formatting example below demonstrates that compatibility behavior; real Bold, Italic, and Underline commands normally combine and should remain standalone `NakedToggle`s as shown above.
 
 ```dart
 import 'package:flutter/material.dart';
@@ -205,18 +213,18 @@ class ToggleGroupExample extends StatelessWidget {
       child: Row(
         children: [
           NakedToggleOption<String>(
-            value: 'grid',
+            value: 'bold',
             builder: (context, state, _) {
               final isCurrent = state.isSelected;
-              return _SegmentChip(label: 'Grid', selected: isCurrent);
+              return _SegmentChip(label: 'Bold', selected: isCurrent);
             },
           ),
           const SizedBox(width: 8),
           NakedToggleOption<String>(
-            value: 'list',
+            value: 'italic',
             builder: (context, state, _) {
               final isCurrent = state.isSelected;
-              return _SegmentChip(label: 'List', selected: isCurrent);
+              return _SegmentChip(label: 'Italic', selected: isCurrent);
             },
           ),
         ],
@@ -240,7 +248,7 @@ class _SegmentChip extends StatelessWidget {
         borderRadius: BorderRadius.circular(8),
         color: selected ? Colors.blue.shade600 : Colors.grey.shade200,
       ),
-      child: const Text(
+      child: Text(
         label,
         style: TextStyle(
           color: selected ? Colors.white : Colors.grey.shade800,
@@ -261,11 +269,19 @@ const NakedToggleGroup({
   required T? selectedValue,
   ValueChanged<T?>? onChanged,
   bool enabled = true,
+  Axis orientation = Axis.horizontal,
+  bool loop = true,
+  String? semanticLabel,
+  bool excludeSemantics = false,
 })
 ```
 
 - `selectedValue` / `onChanged` → control the currently active option externally
 - `enabled` → cascade a disabled state to every descendant option (while still rendering them)
+- `orientation` → bind Left/Right arrows for horizontal groups or Up/Down arrows for vertical groups
+- `loop` → wrap arrow-key focus at the first and last enabled options (default `true`)
+- `semanticLabel` → identify the group to assistive technologies
+- `excludeSemantics` → hide the group and its options from the semantic tree
 
 ### Option API
 
@@ -284,11 +300,14 @@ const NakedToggleOption({
   ValueChanged<bool>? onHoverChange,
   ValueChanged<bool>? onPressChange,
   String? semanticLabel,
+  bool excludeSemantics = false,
 })
 ```
 
 - Provide either `child` or `builder`; builders receive the typed toggle option state
 - `mouseCursor`, `enableFeedback`, and the interaction callbacks mirror the single toggle API so you can style segmented controls consistently
+- `focusNode` remains caller-owned; the option manages its focusability and traversal flags while mounted
+- `excludeSemantics` hides one option from the semantic tree
 
 `NakedToggleOptionState<T>` mirrors the base state helpers and exposes:
 - `value` → the option's value
@@ -303,9 +322,13 @@ const NakedToggleOption({
 
 ## Accessibility Notes
 
-- Keyboard: Space/Enter toggles, arrow keys move between options inside a `NakedToggleGroup`
+- Standalone keyboard: Space/Enter toggles the boolean value
+- Group keyboard: one option participates in Tab traversal; Tab enters and exits the group once
+- Group navigation: Left/Right follows visual direction in horizontal groups, Up/Down navigates vertical groups, and Home/End moves to the first/last enabled option
+- Group selection: arrows and Home/End move focus without selecting; Space/Enter activates the focused option and proposes the next controlled value
+- Group resilience: disabled options are skipped, and removing the focused option repairs focus to the next option in final visual order or its predecessor
 - Screen readers: provide `semanticLabel` (and `asSwitch` when acting as a settings switch)
-- Focus management: supply your own `FocusNode` when integrating with larger focus scopes
+- Focus management: callers that supply a `FocusNode` retain ownership and must dispose it
 - Visual feedback: use `state.isFocused` / `isPressed` to surface strong focus & press affordances
 
-Need more patterns? Review the full sample app under `example/lib/api` for end-to-end scenarios.
+Need more patterns? Review the full sample app under `packages/example/lib/api` for end-to-end scenarios.

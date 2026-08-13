@@ -14,7 +14,7 @@ Headless select dropdown component. Handles keyboard navigation, focus managemen
 - **Data selection**: Pick items from large sets with search/grouping
 
 <Info>
-  Working samples are in [`example/lib/api/naked_select.0.dart`](https://github.com/btwld/naked_ui/blob/main/example/lib/api/naked_select.0.dart) (plus `.1`/`.2` for searchable and grouped variants).
+  Working samples are in [`packages/example/lib/api/naked_select.0.dart`](https://github.com/btwld/naked_ui/blob/main/packages/example/lib/api/naked_select.0.dart) (plus `.1`/`.2` for searchable and grouped variants).
 </Info>
 
 ## Basic implementation
@@ -153,6 +153,7 @@ const NakedSelect({
   this.closeOnSelect = true,
   this.closeOnClickOutside = true,
   this.enabled = true,
+  this.mouseCursor = SystemMouseCursors.click,
   this.triggerFocusNode,
   this.semanticLabel,
   this.positioning = const OverlayPositionConfig(
@@ -166,6 +167,7 @@ const NakedSelect({
   this.onCloseRequested,
   this.consumeOutsideTaps = true,
   this.useRootOverlay = false,
+  this.excludeSemantics = false,
 })
 ```
 
@@ -178,8 +180,10 @@ const NakedSelect({
 - `closeOnSelect` / `closeOnClickOutside` → opt into dismissal after selection and pointer taps outside
 - `consumeOutsideTaps` / `useRootOverlay` → control how outside gestures are captured and which overlay stack is used
 - `enabled` → disables trigger & option activation when false
+- `mouseCursor` → set the trigger cursor when the select is enabled
 - `triggerFocusNode` → reuse an external focus node; focus is restored here automatically on close
 - `semanticLabel` → override trigger semantics; the current `value?.toString()` is announced when provided
+- `excludeSemantics` → hide the select trigger subtree from the semantic tree; opened overlay content remains exposed
 - Lifecycle hooks: `onOpen`, `onClose`, `onCanceled` fire around overlay visibility; `onOpenRequested`, `onCloseRequested` intercept RawMenuAnchor requests (e.g. for animations)
 
 ## Options via `NakedSelect.Option`

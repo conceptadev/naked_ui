@@ -2,8 +2,9 @@ import 'dart:ui' as ui show BoxHeightStyle, BoxWidthStyle;
 
 import 'package:flutter/cupertino.dart'
     show
-        cupertinoTextSelectionHandleControls,
-        cupertinoDesktopTextSelectionHandleControls;
+        CupertinoDynamicColor,
+        cupertinoDesktopTextSelectionHandleControls,
+        cupertinoTextSelectionHandleControls;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 // We import just what we need from Material/Cupertino to keep surface minimal,
@@ -299,7 +300,10 @@ class NakedTextField extends StatefulWidget {
   /// Whether cursor opacity changes are animated.
   final bool? cursorOpacityAnimates;
 
-  /// The cursor color, or null to use the package's neutral fallback.
+  /// The cursor color.
+  ///
+  /// If null, uses the ambient [DefaultSelectionStyle.cursorColor] before the
+  /// platform fallback.
   final Color? cursorColor;
 
   /// How selection highlights align vertically with text boxes.
@@ -496,8 +500,52 @@ class _NakedTextFieldState extends State<NakedTextField>
     updateFocusState(focused, widget.onFocusChange);
   }
 
+  var _pressEpoch = 0;
+
   void _handlePressChange(bool pressed) {
-    updatePressState(pressed, widget.onPressChange);
+    if (isPressed == pressed) return;
+    _pressEpoch++;
+    updatePressState(pressed, (value) {
+      widget.onTapChange?.call(value);
+      widget.onPressChange?.call(value);
+    });
+  }
+
+  void _handlePressReset() {
+    if (!isPressed) return;
+    final epoch = ++_pressEpoch;
+    updatePressState(false, null);
+
+    final tapCallback = widget.onTapChange;
+    final pressCallback = widget.onPressChange;
+    if (tapCallback == null && pressCallback == null) return;
+
+    // Tap tracking also resets when its recognizer is disposed during teardown.
+    // Defer consumer callbacks so rebuilds are safe and skip them after unmount.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _pressEpoch != epoch || isPressed) return;
+      tapCallback?.call(false);
+      pressCallback?.call(false);
+    });
+  }
+
+  var _enabledEpoch = 0;
+
+  void _handleEnabledChange(NakedTextField oldWidget) {
+    if (oldWidget.enabled == widget.enabled) return;
+    final epoch = ++_enabledEpoch;
+    if (widget.enabled || !updatePressState(false, null)) return;
+
+    final tapCallback = widget.onTapChange;
+    final pressCallback = widget.onPressChange;
+    if (tapCallback == null && pressCallback == null) return;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _enabledEpoch == epoch && !widget.enabled && isDisabled) {
+        tapCallback?.call(false);
+        pressCallback?.call(false);
+      }
+    });
   }
 
   bool _shouldShowSelectionHandles(SelectionChangedCause? cause) {
@@ -585,6 +633,7 @@ class _NakedTextFieldState extends State<NakedTextField>
 
     updateDisabledState(!widget.enabled);
     updateErrorState(widget.error);
+    _handleEnabledChange(oldWidget);
 
     if (widget.controller == null && oldWidget.controller != null) {
       _createLocalController(oldWidget.controller!.value);
@@ -658,7 +707,8 @@ class _NakedTextFieldState extends State<NakedTextField>
   late bool forcePressEnabled;
 
   @override
-  bool get selectionEnabled => widget.enableInteractiveSelection;
+  bool get selectionEnabled =>
+      widget.enabled && widget.enableInteractiveSelection;
 
   EditableTextState? get _editableText => editableTextKey.currentState;
 
@@ -720,9 +770,22 @@ class _NakedTextFieldState extends State<NakedTextField>
         widget.spellCheckConfiguration ??
         const SpellCheckConfiguration.disabled();
 
+    final DefaultSelectionStyle selectionStyle = DefaultSelectionStyle.of(
+      context,
+    );
+    final Color? cursorColor = CupertinoDynamicColor.maybeResolve(
+      widget.cursorColor ?? selectionStyle.cursorColor,
+      context,
+    );
+    final Color? selectionColor = CupertinoDynamicColor.maybeResolve(
+      selectionStyle.selectionColor,
+      context,
+    );
+
     final _PlatformDefaults p = _PlatformDefaults.resolve(
       context: context,
-      cursorColorOverride: widget.cursorColor,
+      cursorColorOverride: cursorColor,
+      selectionColorOverride: selectionColor,
       cursorRadiusOverride: widget.cursorRadius,
       cursorOpacityAnimatesOverride: widget.cursorOpacityAnimates,
     );
@@ -927,17 +990,55 @@ class _NakedSelectionGestureDetectorBuilder
 
   @override
   void onTapDown(TapDragDownDetails details) {
-    super.onTapDown(details);
     if (!_state.widget.enabled) return;
-    _state.widget.onTapChange?.call(true);
+    super.onTapDown(details);
     _state._handlePressChange(true);
   }
 
   @override
-  void onSingleTapUp(TapDragUpDetails details) {
-    super.onSingleTapUp(details);
+  void onTapTrackReset() {
+    super.onTapTrackReset();
     if (!_state.widget.enabled) return;
-    _state.widget.onTapChange?.call(false);
+    _state._handlePressReset();
+  }
+
+  @override
+  void onForcePressStart(ForcePressDetails details) {
+    if (!_state.widget.enabled) return;
+    super.onForcePressStart(details);
+  }
+
+  @override
+  void onForcePressEnd(ForcePressDetails details) {
+    if (!_state.widget.enabled) return;
+    super.onForcePressEnd(details);
+  }
+
+  @override
+  void onDoubleTapDown(TapDragDownDetails details) {
+    if (!_state.widget.enabled) return;
+    super.onDoubleTapDown(details);
+    _state._handlePressChange(false);
+  }
+
+  @override
+  void onTripleTapDown(TapDragDownDetails details) {
+    if (!_state.widget.enabled) return;
+    super.onTripleTapDown(details);
+    _state._handlePressChange(false);
+  }
+
+  @override
+  void onDragSelectionStart(TapDragStartDetails details) {
+    if (!_state.widget.enabled) return;
+    super.onDragSelectionStart(details);
+    _state._handlePressChange(false);
+  }
+
+  @override
+  void onSingleTapUp(TapDragUpDetails details) {
+    if (!_state.widget.enabled) return;
+    super.onSingleTapUp(details);
     _state._handlePressChange(false);
   }
 
@@ -945,7 +1046,6 @@ class _NakedSelectionGestureDetectorBuilder
   void onSingleTapCancel() {
     super.onSingleTapCancel();
     if (!_state.widget.enabled) return;
-    _state.widget.onTapChange?.call(false);
     _state._handlePressChange(false);
   }
 
@@ -979,6 +1079,7 @@ class _PlatformDefaults {
   static _PlatformDefaults resolve({
     required BuildContext context,
     Color? cursorColorOverride,
+    Color? selectionColorOverride,
     Radius? cursorRadiusOverride,
     bool? cursorOpacityAnimatesOverride,
   }) {
@@ -989,7 +1090,8 @@ class _PlatformDefaults {
           paintCursorAboveText: true,
           cursorOpacityAnimates: cursorOpacityAnimatesOverride ?? true,
           cursorColor: cursorColorOverride ?? const Color(0xFF007AFF),
-          selectionColor: const Color(0x66007AFF), // ~40% alpha
+          selectionColor:
+              selectionColorOverride ?? const Color(0x66007AFF), // ~40% alpha
           cursorRadius: cursorRadiusOverride ?? const Radius.circular(2),
           cursorOffset: Offset(
             _NakedTextFieldState._iOSHorizontalOffset /
@@ -1004,7 +1106,7 @@ class _PlatformDefaults {
           paintCursorAboveText: true,
           cursorOpacityAnimates: cursorOpacityAnimatesOverride ?? false,
           cursorColor: cursorColorOverride ?? const Color(0xFF007AFF),
-          selectionColor: const Color(0x66007AFF),
+          selectionColor: selectionColorOverride ?? const Color(0x66007AFF),
           cursorRadius: cursorRadiusOverride ?? const Radius.circular(2),
           cursorOffset: Offset(
             _NakedTextFieldState._iOSHorizontalOffset /
@@ -1021,7 +1123,8 @@ class _PlatformDefaults {
           paintCursorAboveText: false,
           cursorOpacityAnimates: cursorOpacityAnimatesOverride ?? false,
           cursorColor: cursorColorOverride ?? _androidBlue,
-          selectionColor: _androidBlue.withValues(alpha: 0.40),
+          selectionColor:
+              selectionColorOverride ?? _androidBlue.withValues(alpha: 0.40),
           cursorRadius: cursorRadiusOverride,
           cursorOffset: null,
           platformSelectionControls: materialTextSelectionHandleControls,
@@ -1033,7 +1136,8 @@ class _PlatformDefaults {
           paintCursorAboveText: false,
           cursorOpacityAnimates: cursorOpacityAnimatesOverride ?? false,
           cursorColor: cursorColorOverride ?? _androidBlue,
-          selectionColor: _androidBlue.withValues(alpha: 0.40),
+          selectionColor:
+              selectionColorOverride ?? _androidBlue.withValues(alpha: 0.40),
           cursorRadius: cursorRadiusOverride,
           cursorOffset: null,
           platformSelectionControls: desktopTextSelectionHandleControls,

@@ -1,4 +1,4 @@
-import 'dart:ui' show SemanticsRole, Tristate;
+import 'dart:ui' show CheckedState, SemanticsRole, Tristate;
 
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -7,6 +7,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:naked_ui/naked_ui.dart';
 
 import 'semantics_test_utils.dart';
+
+void _ignoreBool(bool _) {}
+
+void _ignoreString(String _) {}
 
 void main() {
   Widget _buildTestApp(Widget child) {
@@ -199,6 +203,106 @@ void main() {
         ancestor = ancestor.parent;
       }
       expect(hasMenuAncestor, isTrue);
+
+      handle.dispose();
+    });
+
+    testWidgets('checkbox and radio items expose checked menu roles', (
+      tester,
+    ) async {
+      final handle = tester.ensureSemantics();
+      final controller = MenuController();
+
+      await tester.pumpWidget(
+        _buildTestApp(
+          NakedMenu<String>(
+            controller: controller,
+            builder: (context, state, child) => const Text('Open'),
+            overlayBuilder: (context, info) => const Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                NakedMenuCheckboxItem<String>(
+                  value: 'notifications',
+                  checked: true,
+                  onChanged: _ignoreBool,
+                  child: Text('Notifications'),
+                ),
+                NakedMenuRadioGroup<String>(
+                  value: 'compact',
+                  onChanged: _ignoreString,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      NakedMenuRadioItem<String>(
+                        value: 'compact',
+                        child: Text('Compact'),
+                      ),
+                      NakedMenuRadioItem<String>(
+                        value: 'comfortable',
+                        child: Text('Comfortable'),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+      controller.open();
+      await tester.pumpAndSettle();
+
+      final checkbox = tester
+          .getSemantics(find.text('Notifications'))
+          .getSemanticsData();
+      final selectedRadio = tester
+          .getSemantics(find.text('Compact'))
+          .getSemanticsData();
+      final unselectedRadio = tester
+          .getSemantics(find.text('Comfortable'))
+          .getSemanticsData();
+
+      expect(checkbox.role, SemanticsRole.menuItemCheckbox);
+      expect(checkbox.flagsCollection.isChecked, CheckedState.isTrue);
+      expect(selectedRadio.role, SemanticsRole.menuItemRadio);
+      expect(selectedRadio.flagsCollection.isChecked, CheckedState.isTrue);
+      expect(selectedRadio.flagsCollection.isInMutuallyExclusiveGroup, isTrue);
+      expect(unselectedRadio.role, SemanticsRole.menuItemRadio);
+      expect(unselectedRadio.flagsCollection.isChecked, CheckedState.isFalse);
+      expect(
+        unselectedRadio.flagsCollection.isInMutuallyExclusiveGroup,
+        isTrue,
+      );
+
+      handle.dispose();
+    });
+
+    testWidgets('submenu trigger has one named expandable menu-item node', (
+      tester,
+    ) async {
+      final handle = tester.ensureSemantics();
+      final controller = MenuController();
+      await tester.pumpWidget(
+        _buildTestApp(
+          NakedMenu<String>(
+            controller: controller,
+            builder: (context, state, child) => const Text('Open'),
+            overlayBuilder: (context, info) => const NakedMenuSubmenu<String>(
+              semanticLabel: 'More options',
+              child: Text('More'),
+              overlayBuilder: _emptySubmenu,
+            ),
+          ),
+        ),
+      );
+      controller.open();
+      await tester.pumpAndSettle();
+
+      final data = tester.getSemantics(find.text('More')).getSemanticsData();
+      expect(data.role, SemanticsRole.menuItem);
+      expect(data.label, 'More options');
+      expect(data.flagsCollection.isExpanded, Tristate.isFalse);
+      expect(data.hasAction(SemanticsAction.tap), isTrue);
 
       handle.dispose();
     });
@@ -525,3 +629,6 @@ void main() {
     });
   });
 }
+
+Widget _emptySubmenu(BuildContext context, RawMenuOverlayInfo info) =>
+    const SizedBox.shrink();

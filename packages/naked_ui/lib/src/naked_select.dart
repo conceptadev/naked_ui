@@ -100,7 +100,7 @@ class _NakedSelectScope<T> extends OverlayScope<T> {
   const _NakedSelectScope({
     super.key,
     required super.child,
-    required this.controller,
+    required this.close,
     required this.closeOnSelect,
     required this.enabled,
     this.onChanged,
@@ -118,7 +118,7 @@ class _NakedSelectScope<T> extends OverlayScope<T> {
     );
   }
 
-  final MenuController controller;
+  final VoidCallback close;
   final bool closeOnSelect;
   final bool enabled;
   final ValueChanged<T?>? onChanged;
@@ -127,7 +127,7 @@ class _NakedSelectScope<T> extends OverlayScope<T> {
 
   @override
   bool updateShouldNotify(covariant _NakedSelectScope<T> oldWidget) {
-    return controller != oldWidget.controller ||
+    return close != oldWidget.close ||
         closeOnSelect != oldWidget.closeOnSelect ||
         enabled != oldWidget.enabled ||
         onChanged != oldWidget.onChanged ||
@@ -153,7 +153,7 @@ class NakedSelectOption<T> extends OverlayItem<T, NakedSelectOptionState<T>> {
   /// Handles selection of this option.
   void _handleSelection(_NakedSelectScope<T> scope) {
     scope.onChanged?.call(value);
-    if (scope.closeOnSelect) scope.controller.close();
+    if (scope.closeOnSelect) scope.close();
   }
 
   @override
@@ -237,11 +237,12 @@ class NakedSelect<T> extends StatefulWidget {
     this.triggerFocusNode,
     this.semanticLabel,
     this.positioning = const OverlayPositionConfig(
-      targetAnchor: Alignment.bottomCenter,
-      followerAnchor: Alignment.topCenter,
+      alignment: OverlayAlignment.center,
     ),
     this.onOpen,
     this.onClose,
+    this.open,
+    this.onOpenChanged,
     this.onCanceled,
     this.onOpenRequested,
     this.onCloseRequested,
@@ -304,6 +305,16 @@ class NakedSelect<T> extends StatefulWidget {
   /// Called when the select overlay closes.
   final VoidCallback? onClose;
 
+  /// Controls whether the overlay is open.
+  ///
+  /// When null, [NakedSelect] manages its own open state. When non-null, user
+  /// interactions request changes through [onOpenChanged] and the visible
+  /// overlay follows this value.
+  final bool? open;
+
+  /// Called when a controlled or observed open-state change is requested.
+  final ValueChanged<bool>? onOpenChanged;
+
   /// Called when the select closes without a selection.
   final VoidCallback? onCanceled;
 
@@ -345,11 +356,33 @@ class _NakedSelectState<T> extends State<NakedSelect<T>>
   T? get _effectiveValue => widget.value;
   bool get _isEnabled => widget.enabled && widget.onChanged != null;
 
-  void _toggle() =>
-      _menuController.isOpen ? _menuController.close() : _menuController.open();
+  bool get _isControlled => widget.open != null;
+
+  void _requestOpen(bool open) {
+    if (!_isEnabled && open) return;
+    if (_isControlled) {
+      if (widget.open != open) widget.onOpenChanged?.call(open);
+      return;
+    }
+    if (open == _menuController.isOpen) return;
+    open ? _menuController.open() : _menuController.close();
+  }
+
+  void _toggle() => _requestOpen(!_menuController.isOpen);
+
+  void _scheduleControlledSync() {
+    if (!_isControlled) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_isControlled) return;
+      final shouldOpen = _isEnabled && widget.open!;
+      if (shouldOpen == _menuController.isOpen) return;
+      shouldOpen ? _menuController.open() : _menuController.close();
+    });
+  }
 
   void _handleOpen() {
     handleOpen(widget.onOpen);
+    if (!_isControlled) widget.onOpenChanged?.call(true);
     if (mounted) setState(() {});
   }
 
@@ -359,6 +392,7 @@ class _NakedSelectState<T> extends State<NakedSelect<T>>
       onCanceled: widget.onCanceled,
       triggerFocusNode: widget.triggerFocusNode,
     );
+    if (!_isControlled) widget.onOpenChanged?.call(false);
     if (mounted) setState(() {});
   }
 
@@ -391,7 +425,12 @@ class _NakedSelectState<T> extends State<NakedSelect<T>>
   void didUpdateWidget(covariant NakedSelect<T> oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (!_isEnabled && _menuController.isOpen) {
-      _menuController.close();
+      _requestOpen(false);
+    }
+    if (widget.open != oldWidget.open ||
+        widget.enabled != oldWidget.enabled ||
+        widget.onChanged != oldWidget.onChanged) {
+      _scheduleControlledSync();
     }
   }
 
@@ -399,6 +438,7 @@ class _NakedSelectState<T> extends State<NakedSelect<T>>
 
   @override
   Widget build(BuildContext context) {
+    _scheduleControlledSync();
     final semanticsValue = _effectiveValue?.toString();
 
     Widget selectWidget = AnchoredOverlayShell(
@@ -413,7 +453,7 @@ class _NakedSelectState<T> extends State<NakedSelect<T>>
             container: true,
             explicitChildNodes: true,
             child: _NakedSelectScope<T>(
-              controller: _menuController,
+              close: () => _requestOpen(false),
               closeOnSelect: widget.closeOnSelect,
               enabled: _isEnabled,
               onChanged: _handleSelection,
@@ -429,6 +469,7 @@ class _NakedSelectState<T> extends State<NakedSelect<T>>
       onClose: _handleClose,
       onOpenRequested: widget.onOpenRequested,
       onCloseRequested: widget.onCloseRequested,
+      onDismissRequested: () => _requestOpen(false),
       consumeOutsideTaps: widget.consumeOutsideTaps,
       useRootOverlay: widget.useRootOverlay,
       closeOnClickOutside: widget.closeOnClickOutside,
@@ -476,8 +517,8 @@ class _NakedSelectState<T> extends State<NakedSelect<T>>
       shortcuts: NakedIntentActions.select.shortcuts,
       child: Actions(
         actions: NakedIntentActions.select.actions(
-          onDismiss: () => _menuController.close(),
-          onOpenOverlay: _isEnabled ? () => _menuController.open() : null,
+          onDismiss: () => _requestOpen(false),
+          onOpenOverlay: _isEnabled ? () => _requestOpen(true) : null,
           onPageUp: _handlePageUp,
           onPageDown: _handlePageDown,
         ),

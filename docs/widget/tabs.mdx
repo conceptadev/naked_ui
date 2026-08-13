@@ -20,7 +20,7 @@ Headless tabs component. Handles keyboard navigation (arrow keys) and selection 
 - `NakedTabView` – panel that shows/hides content based on the active tab
 
 <Info>
-  See the complete implementation in [`example/lib/api/naked_tabs.0.dart`](https://github.com/btwld/naked_ui/blob/main/example/lib/api/naked_tabs.0.dart).
+  See the complete implementation in [`packages/example/lib/api/naked_tabs.0.dart`](https://github.com/btwld/naked_ui/blob/main/packages/example/lib/api/naked_tabs.0.dart).
 </Info>
 
 ## Basic implementation
@@ -128,7 +128,7 @@ class _TabChip extends StatelessWidget {
               width: isFocused ? 2 : 1,
             ),
           ),
-          child: const Text(
+          child: Text(
             label,
             style: TextStyle(
               fontWeight: FontWeight.w600,
@@ -159,7 +159,7 @@ class _PanelBox extends StatelessWidget {
         color: color,
         borderRadius: BorderRadius.circular(12),
       ),
-      child: const Text(text),
+      child: Text(text),
     );
   }
 }
@@ -218,12 +218,14 @@ const NakedTab({
   this.onPressChange,
   this.builder,
   this.semanticLabel,
+  this.excludeSemantics = false,
 })
 ```
 
 - Provide either `child` or `builder`
 - `builder` → `ValueWidgetBuilder<NakedTabState>?`
 - `semanticLabel` → override accessible name
+- `excludeSemantics` → hide the tab and its descendants from the semantic tree
 - interaction callbacks: `onFocusChange`, `onHoverChange`, `onPressChange`
 
 ### NakedTabView

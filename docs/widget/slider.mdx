@@ -14,7 +14,7 @@ Headless slider component. Handles drag interactions, keyboard navigation (arrow
 - **Custom designs**: When you need sliders that match your design system perfectly
 
 <Info>
-  See complete examples in our [GitHub repository](https://github.com/btwld/naked_ui/blob/main/example/lib/api/naked_slider.0.dart).
+  See complete examples in our [GitHub repository](https://github.com/btwld/naked_ui/blob/main/packages/example/lib/api/naked_slider.0.dart).
 </Info>
 ## Basic implementation
 
@@ -169,7 +169,7 @@ NakedSlider(
 
 ### Custom painters (advanced)
 
-For complex designs, you can use CustomPaint for pixel-perfect control. Check out our [complete CustomPaint examples](https://github.com/btwld/naked_ui/blob/main/example/lib/api/naked_slider.0.dart) in the repository.
+For complex designs, you can use CustomPaint for pixel-perfect control. Check out our [complete CustomPaint examples](https://github.com/btwld/naked_ui/blob/main/packages/example/lib/api/naked_slider.0.dart) in the repository.
 
 
 ## Constructor
@@ -198,6 +198,8 @@ const NakedSlider({
   this.keyboardStep = 0.01,
   this.largeKeyboardStep = 0.1,
   this.semanticLabel,
+  this.semanticFormatterCallback,
+  this.excludeSemantics = false,
 })
 ```
 

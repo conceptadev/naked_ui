@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -374,6 +375,239 @@ void main() {
         expect(after.hasFocus, isFalse);
       });
     });
+
+    group('Structured items and submenus', () {
+      testWidgets('checkbox and radio items update controlled values', (
+        tester,
+      ) async {
+        final controller = MenuController();
+        bool? checkboxValue;
+        String? radioValue;
+
+        await tester.pumpMaterialWidget(
+          NakedMenu<String>(
+            controller: controller,
+            builder: (context, state, child) => const Text('Open'),
+            overlayBuilder: (context, info) => Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                NakedMenuCheckboxItem<String>(
+                  value: 'notifications',
+                  checked: false,
+                  closeOnActivate: false,
+                  onChanged: (value) => checkboxValue = value,
+                  child: const Text('Notifications'),
+                ),
+                NakedMenuRadioGroup<String>(
+                  value: 'compact',
+                  onChanged: (value) => radioValue = value,
+                  child: const NakedMenuRadioItem<String>(
+                    value: 'comfortable',
+                    closeOnActivate: false,
+                    child: Text('Comfortable'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+        controller.open();
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.text('Notifications'));
+        await tester.tap(find.text('Comfortable'));
+
+        expect(checkboxValue, isTrue);
+        expect(radioValue, 'comfortable');
+        expect(controller.isOpen, isTrue);
+      });
+
+      testWidgets('hover opens a submenu only after its delay', (tester) async {
+        final controller = MenuController();
+        await tester.pumpMaterialWidget(
+          NakedMenu<String>(
+            controller: controller,
+            builder: (context, state, child) => const Text('Open'),
+            overlayBuilder: (context, info) => const NakedMenuSubmenu<String>(
+              hoverDelay: Duration(milliseconds: 100),
+              child: SizedBox(width: 120, height: 40, child: Text('More')),
+              overlayBuilder: _submenuContent,
+            ),
+          ),
+        );
+        controller.open();
+        await tester.pumpAndSettle();
+
+        final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+        await mouse.addPointer(location: Offset.zero);
+        addTearDown(mouse.removePointer);
+        await mouse.moveTo(tester.getCenter(find.text('More')));
+        await tester.pump(const Duration(milliseconds: 99));
+        expect(find.text('Child item'), findsNothing);
+
+        await tester.pump(const Duration(milliseconds: 1));
+        await tester.pump();
+        expect(find.text('Child item'), findsOneWidget);
+      });
+
+      testWidgets('keyboard opens, closes, and restores submenu focus', (
+        tester,
+      ) async {
+        final controller = MenuController();
+        final submenuFocus = FocusNode();
+        addTearDown(submenuFocus.dispose);
+
+        await tester.pumpMaterialWidget(
+          NakedMenu<String>(
+            controller: controller,
+            builder: (context, state, child) => const Text('Open'),
+            overlayBuilder: (context, info) => NakedMenuSubmenu<String>(
+              focusNode: submenuFocus,
+              child: const SizedBox(
+                width: 120,
+                height: 40,
+                child: Text('More'),
+              ),
+              overlayBuilder: _submenuContent,
+            ),
+          ),
+        );
+        controller.open();
+        await tester.pumpAndSettle();
+        submenuFocus.requestFocus();
+        await tester.pump();
+
+        await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+        await tester.pumpAndSettle();
+        expect(find.text('Child item'), findsOneWidget);
+
+        await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+        await tester.pumpAndSettle();
+        expect(find.text('Child item'), findsNothing);
+        expect(find.text('More'), findsOneWidget);
+        expect(submenuFocus.hasFocus, isTrue);
+      });
+
+      testWidgets('submenu direction handoff follows RTL', (tester) async {
+        final controller = MenuController();
+        final submenuFocus = FocusNode();
+        addTearDown(submenuFocus.dispose);
+
+        await tester.pumpMaterialWidget(
+          Directionality(
+            textDirection: TextDirection.rtl,
+            child: NakedMenu<String>(
+              controller: controller,
+              builder: (context, state, child) => const Text('Open'),
+              overlayBuilder: (context, info) => NakedMenuSubmenu<String>(
+                focusNode: submenuFocus,
+                child: const SizedBox(
+                  width: 120,
+                  height: 40,
+                  child: Text('More'),
+                ),
+                overlayBuilder: _submenuContent,
+              ),
+            ),
+          ),
+        );
+        controller.open();
+        await tester.pumpAndSettle();
+        submenuFocus.requestFocus();
+        await tester.pump();
+
+        await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+        await tester.pumpAndSettle();
+        expect(find.text('Child item'), findsOneWidget);
+
+        await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+        await tester.pumpAndSettle();
+        expect(find.text('Child item'), findsNothing);
+        expect(submenuFocus.hasFocus, isTrue);
+      });
+
+      testWidgets('activating a nested item closes the root menu', (
+        tester,
+      ) async {
+        final controller = MenuController();
+        String? selected;
+        await tester.pumpMaterialWidget(
+          NakedMenu<String>(
+            controller: controller,
+            onSelected: (value) => selected = value,
+            builder: (context, state, child) => const Text('Open'),
+            overlayBuilder: (context, info) => const NakedMenuSubmenu<String>(
+              child: SizedBox(width: 120, height: 40, child: Text('More')),
+              overlayBuilder: _submenuContent,
+            ),
+          ),
+        );
+        controller.open();
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('More'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Child item'));
+        await tester.pumpAndSettle();
+
+        expect(selected, 'child');
+        expect(controller.isOpen, isFalse);
+        expect(find.text('More'), findsNothing);
+      });
+
+      testWidgets('submenus can recurse with keyboard handoff', (tester) async {
+        final controller = MenuController();
+        final outerFocus = FocusNode();
+        final innerFocus = FocusNode();
+        addTearDown(outerFocus.dispose);
+        addTearDown(innerFocus.dispose);
+
+        await tester.pumpMaterialWidget(
+          NakedMenu<String>(
+            controller: controller,
+            builder: (context, state, child) => const Text('Open'),
+            overlayBuilder: (context, info) => NakedMenuSubmenu<String>(
+              focusNode: outerFocus,
+              child: const SizedBox(
+                width: 120,
+                height: 40,
+                child: Text('More'),
+              ),
+              overlayBuilder: (context, info) => NakedMenuSubmenu<String>(
+                focusNode: innerFocus,
+                child: const SizedBox(
+                  width: 120,
+                  height: 40,
+                  child: Text('Even more'),
+                ),
+                overlayBuilder: (context, info) => const NakedMenuItem<String>(
+                  value: 'grandchild',
+                  child: SizedBox(height: 40, child: Text('Grandchild item')),
+                ),
+              ),
+            ),
+          ),
+        );
+        controller.open();
+        await tester.pumpAndSettle();
+        outerFocus.requestFocus();
+        await tester.pump();
+
+        await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+        await tester.pumpAndSettle();
+        expect(find.text('Even more'), findsOneWidget);
+        expect(innerFocus.hasFocus, isTrue);
+
+        await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+        await tester.pumpAndSettle();
+        expect(find.text('Grandchild item'), findsOneWidget);
+
+        await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+        await tester.pumpAndSettle();
+        expect(find.text('Grandchild item'), findsNothing);
+        expect(find.text('Even more'), findsOneWidget);
+        expect(innerFocus.hasFocus, isTrue);
+      });
+    });
   });
 
   group('NakedMenuContent', () {
@@ -444,3 +678,12 @@ void main() {
   // See tests like "calls onMenuClose when menu item is selected" and
   // "keeps menu open when closeOnActivate is false on menu item".
 }
+
+Widget _submenuContent(BuildContext context, RawMenuOverlayInfo info) =>
+    const SizedBox(
+      width: 140,
+      child: NakedMenuItem<String>(
+        value: 'child',
+        child: SizedBox(height: 40, child: Text('Child item')),
+      ),
+    );

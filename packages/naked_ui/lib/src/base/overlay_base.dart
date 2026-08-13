@@ -109,6 +109,8 @@ abstract class OverlayItem<T, S extends NakedState> extends StatelessWidget {
     required VoidCallback? onPressed,
     required bool effectiveEnabled,
     bool? isSelected,
+    bool? isChecked,
+    bool? inMutuallyExclusiveGroup,
     SemanticsRole? semanticsRole,
     required S Function(Set<WidgetState> states) mapStates,
   }) {
@@ -121,7 +123,7 @@ abstract class OverlayItem<T, S extends NakedState> extends StatelessWidget {
           ? null
           : (context, buttonState, child) {
               final effectiveStates = <WidgetState>{...buttonState.states};
-              if (isSelected == true) {
+              if (isSelected == true || isChecked == true) {
                 effectiveStates.add(WidgetState.selected);
               }
 
@@ -139,12 +141,19 @@ abstract class OverlayItem<T, S extends NakedState> extends StatelessWidget {
             },
     );
 
-    if (semanticsRole == null && isSelected == null) return button;
+    if (semanticsRole == null &&
+        isSelected == null &&
+        isChecked == null &&
+        inMutuallyExclusiveGroup == null) {
+      return button;
+    }
 
     return MergeSemantics(
       child: Semantics(
         role: semanticsRole,
         selected: isSelected,
+        checked: isChecked,
+        inMutuallyExclusiveGroup: inMutuallyExclusiveGroup,
         child: button,
       ),
     );

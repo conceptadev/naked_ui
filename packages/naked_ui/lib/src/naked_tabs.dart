@@ -11,6 +11,15 @@ import 'utilities/naked_focusable_detector.dart';
 import 'utilities/naked_state_scope.dart';
 import 'utilities/state.dart';
 
+/// Determines whether moving focus also selects a tab.
+enum NakedTabActivationMode {
+  /// Focus movement immediately selects the focused tab.
+  automatic,
+
+  /// Focus movement does not change selection; activation is explicit.
+  manual,
+}
+
 /// A controller for managing tab selection state.
 ///
 /// Extends [ChangeNotifier] to notify listeners when the selected tab changes.
@@ -111,6 +120,7 @@ class NakedTabs extends StatelessWidget {
     this.selectedTabId,
     this.onChanged,
     this.orientation = Axis.horizontal,
+    this.activationMode = NakedTabActivationMode.automatic,
     this.enabled = true,
     this.onEscapePressed,
   }) : assert(
@@ -141,6 +151,9 @@ class NakedTabs extends StatelessWidget {
 
   /// The tab list orientation.
   final Axis orientation;
+
+  /// Whether focus movement automatically changes selection.
+  final NakedTabActivationMode activationMode;
 
   /// Called when Escape is pressed while a tab has focus.
   final VoidCallback? onEscapePressed;
@@ -173,6 +186,7 @@ class NakedTabs extends StatelessWidget {
         selectedTabId: _effectiveSelectedTabId,
         onChanged: _selectTab,
         orientation: orientation,
+        activationMode: activationMode,
         enabled: _effectiveEnabled,
         onEscapePressed: onEscapePressed,
         child: child,
@@ -202,6 +216,7 @@ class NakedTabsScope extends InheritedWidget {
     required this.selectedTabId,
     required this.onChanged,
     required this.orientation,
+    required this.activationMode,
     required this.enabled,
     this.onEscapePressed,
     required super.child,
@@ -229,6 +244,9 @@ class NakedTabsScope extends InheritedWidget {
   /// The direction in which tabs are arranged.
   final Axis orientation;
 
+  /// Whether focusing a tab also selects it.
+  final NakedTabActivationMode activationMode;
+
   /// Whether descendants can change the selection.
   final bool enabled;
 
@@ -249,6 +267,7 @@ class NakedTabsScope extends InheritedWidget {
   bool updateShouldNotify(NakedTabsScope old) {
     return selectedTabId != old.selectedTabId ||
         orientation != old.orientation ||
+        activationMode != old.activationMode ||
         enabled != old.enabled ||
         onChanged != old.onChanged ||
         onEscapePressed != old.onEscapePressed;
@@ -519,7 +538,10 @@ class _NakedTabState extends State<NakedTab>
         // focus transition, and transitions are the only way
         // Focus.onFocusChange fires.
         updateFocusState(f, widget.onFocusChange);
-        if (f && _isEnabled && !selectedByTap) {
+        if (f &&
+            _isEnabled &&
+            !selectedByTap &&
+            _scope.activationMode == NakedTabActivationMode.automatic) {
           _scope.selectTab(widget.tabId);
         }
       },

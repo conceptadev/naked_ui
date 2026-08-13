@@ -361,12 +361,17 @@ class _SliderDemoState extends State<_SliderDemo> {
       width: double.infinity,
       height: 36,
       child: NakedSlider(
-        value: _value,
-        semanticLabel: widget.label,
-        semanticFormatterCallback: widget.formatterPrefix == null
-            ? null
-            : (value) => '${widget.formatterPrefix} ${(value * 100).round()}',
-        onChanged: (value) => setState(() => _value = value),
+        values: [_value],
+        min: 0,
+        max: 1,
+        step: 0.01,
+        semanticLabels: [widget.label],
+        semanticFormatterCallbacks: [
+          widget.formatterPrefix == null
+              ? null
+              : (value) => '${widget.formatterPrefix} ${(value * 100).round()}',
+        ],
+        onChanged: (values) => setState(() => _value = values.single),
         child: CustomPaint(painter: _SliderPainter(_value)),
       ),
     );

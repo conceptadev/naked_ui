@@ -1,3 +1,5 @@
+import 'dart:ui' show SemanticsAction, Tristate;
+
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -250,6 +252,207 @@ void main() {
         // Verify toggle group renders correctly
         expect(find.text('Option 1'), findsOneWidget);
         expect(find.text('Option 2'), findsOneWidget);
+
+        handle.dispose();
+      });
+
+      testWidgets('uses one group label and button plus selected options', (
+        tester,
+      ) async {
+        final handle = tester.ensureSemantics();
+
+        await tester.pumpWidget(
+          _buildTestApp(
+            NakedToggleGroup<String>(
+              selectedValue: 'bold',
+              onChanged: (_) {},
+              semanticLabel: 'Formatting',
+              child: Row(
+                children: const [
+                  NakedToggleOption<String>(
+                    value: 'bold',
+                    semanticLabel: 'Bold',
+                    child: SizedBox(width: 20, height: 20),
+                  ),
+                  NakedToggleOption<String>(
+                    value: 'italic',
+                    semanticLabel: 'Italic',
+                    child: SizedBox(width: 20, height: 20),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+
+        final root = tester.getSemantics(find.byType(Scaffold));
+        final groupNodes = collectSemanticsNodes(
+          root,
+          (node) => node.getSemanticsData().label == 'Formatting',
+        );
+        expect(groupNodes, hasLength(1));
+
+        final optionNodes = collectSemanticsNodes(
+          groupNodes.single,
+          (node) => node.getSemanticsData().flagsCollection.isButton,
+        );
+        expect(optionNodes, hasLength(2));
+
+        final bold = optionNodes.singleWhere(
+          (node) => node.getSemanticsData().label == 'Bold',
+        );
+        final italic = optionNodes.singleWhere(
+          (node) => node.getSemanticsData().label == 'Italic',
+        );
+        expect(
+          bold.getSemanticsData().flagsCollection.isSelected,
+          Tristate.isTrue,
+        );
+        expect(
+          italic.getSemanticsData().flagsCollection.isSelected,
+          Tristate.isFalse,
+        );
+        for (final option in optionNodes) {
+          final summary = summarizeNode(option);
+          expect(summary.flags, isNot(contains('hasToggledState')));
+          expect(summary.flags, isNot(contains('hasCheckedState')));
+          expect(summary.flags, contains('isInMutuallyExclusiveGroup'));
+        }
+
+        handle.dispose();
+      });
+
+      testWidgets('disabled options have no tap action', (tester) async {
+        final handle = tester.ensureSemantics();
+
+        await tester.pumpWidget(
+          _buildTestApp(
+            NakedToggleGroup<String>(
+              selectedValue: 'bold',
+              onChanged: (_) {},
+              child: Row(
+                children: const [
+                  NakedToggleOption<String>(
+                    value: 'bold',
+                    semanticLabel: 'Bold',
+                    child: SizedBox(width: 20, height: 20),
+                  ),
+                  NakedToggleOption<String>(
+                    value: 'italic',
+                    enabled: false,
+                    semanticLabel: 'Italic',
+                    child: SizedBox(width: 20, height: 20),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+
+        final root = tester.getSemantics(find.byType(Scaffold));
+        final italic = findSemanticsNode(
+          root,
+          (node) => node.getSemanticsData().label == 'Italic',
+        )!;
+        final data = italic.getSemanticsData();
+        expect(data.flagsCollection.isButton, isTrue);
+        expect(data.flagsCollection.isInMutuallyExclusiveGroup, isTrue);
+        expect(data.flagsCollection.isEnabled, Tristate.isFalse);
+        expect(data.hasAction(SemanticsAction.tap), isFalse);
+
+        handle.dispose();
+      });
+
+      testWidgets(
+        'semantic taps emit once and selected activation is a no-op',
+        (tester) async {
+          final handle = tester.ensureSemantics();
+          final proposedValues = <String?>[];
+
+          await tester.pumpWidget(
+            _buildTestApp(
+              NakedToggleGroup<String>(
+                selectedValue: 'bold',
+                onChanged: proposedValues.add,
+                child: Row(
+                  children: const [
+                    NakedToggleOption<String>(
+                      value: 'bold',
+                      semanticLabel: 'Bold',
+                      child: SizedBox(width: 20, height: 20),
+                    ),
+                    NakedToggleOption<String>(
+                      value: 'italic',
+                      semanticLabel: 'Italic',
+                      child: SizedBox(width: 20, height: 20),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+
+          final root = tester.getSemantics(find.byType(Scaffold));
+          final bold = findSemanticsNode(
+            root,
+            (node) => node.getSemanticsData().label == 'Bold',
+          )!;
+          final italic = findSemanticsNode(
+            root,
+            (node) => node.getSemanticsData().label == 'Italic',
+          )!;
+
+          italic.owner!.performAction(italic.id, SemanticsAction.tap);
+          await tester.pump();
+          expect(proposedValues, ['italic']);
+
+          bold.owner!.performAction(bold.id, SemanticsAction.tap);
+          await tester.pump();
+          expect(proposedValues, ['italic']);
+
+          handle.dispose();
+        },
+      );
+
+      testWidgets('excludeSemantics hides the group and all options', (
+        tester,
+      ) async {
+        final handle = tester.ensureSemantics();
+
+        await tester.pumpWidget(
+          _buildTestApp(
+            NakedToggleGroup<String>(
+              selectedValue: 'bold',
+              onChanged: (_) {},
+              semanticLabel: 'Formatting',
+              excludeSemantics: true,
+              child: const NakedToggleOption<String>(
+                value: 'bold',
+                semanticLabel: 'Bold',
+                child: SizedBox(width: 20, height: 20),
+              ),
+            ),
+          ),
+        );
+
+        final root = tester.getSemantics(find.byType(Scaffold));
+        expect(
+          collectSemanticsNodes(
+            root,
+            (node) => node.getSemanticsData().flagsCollection.isButton,
+          ),
+          isEmpty,
+        );
+        expect(
+          collectSemanticsNodes(
+            root,
+            (node) => const {
+              'Formatting',
+              'Bold',
+            }.contains(node.getSemanticsData().label),
+          ),
+          isEmpty,
+        );
 
         handle.dispose();
       });

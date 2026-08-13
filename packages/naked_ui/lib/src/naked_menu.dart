@@ -1,5 +1,7 @@
+import 'dart:async';
 import 'dart:ui' show SemanticsRole;
 
+import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
 import 'base/overlay_base.dart';
@@ -87,6 +89,7 @@ class _NakedMenuScope<T> extends OverlayScope<T> {
   const _NakedMenuScope({
     required this.onSelected,
     required this.controller,
+    required this.rootController,
     required super.child,
     super.key,
   });
@@ -102,13 +105,20 @@ class _NakedMenuScope<T> extends OverlayScope<T> {
     );
   }
 
+  static _NakedMenuScope<T>? maybeOf<T>(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<_NakedMenuScope<T>>();
+
   final ValueChanged<T>? onSelected;
   final MenuController controller;
+  final MenuController rootController;
+
+  void closeAll() => rootController.close();
 
   @override
   bool updateShouldNotify(covariant _NakedMenuScope<T> oldWidget) {
     return onSelected != oldWidget.onSelected ||
-        controller != oldWidget.controller;
+        controller != oldWidget.controller ||
+        rootController != oldWidget.rootController;
   }
 }
 
@@ -137,7 +147,7 @@ class NakedMenuItem<T> extends OverlayItem<T, NakedMenuItemState<T>> {
 
   void _handleActivation(_NakedMenuScope<T> menu) {
     menu.onSelected?.call(value);
-    if (closeOnActivate) menu.controller.close();
+    if (closeOnActivate) menu.closeAll();
   }
 
   @override
@@ -154,6 +164,411 @@ class NakedMenuItem<T> extends OverlayItem<T, NakedMenuItemState<T>> {
       semanticsRole: SemanticsRole.menuItem,
       mapStates: (states) =>
           NakedMenuItemState<T>(states: states, value: value),
+    );
+  }
+}
+
+/// A checkable item in a [NakedMenu].
+class NakedMenuCheckboxItem<T> extends OverlayItem<T, NakedMenuItemState<T>> {
+  /// Creates a controlled menu checkbox item.
+  const NakedMenuCheckboxItem({
+    super.key,
+    required super.value,
+    required this.checked,
+    this.onChanged,
+    this.closeOnActivate = true,
+    super.enabled = true,
+    super.semanticLabel,
+    super.child,
+    super.builder,
+  });
+
+  /// Whether the item is checked.
+  final bool checked;
+
+  /// Called with the toggled checked value.
+  final ValueChanged<bool>? onChanged;
+
+  /// Whether activation closes the complete menu hierarchy.
+  final bool closeOnActivate;
+
+  @override
+  Widget build(BuildContext context) {
+    final menu = _NakedMenuScope.of<T>(context);
+    final effectiveEnabled =
+        enabled && (onChanged != null || menu.onSelected != null);
+
+    void activate() {
+      menu.onSelected?.call(value);
+      onChanged?.call(!checked);
+      if (closeOnActivate) menu.closeAll();
+    }
+
+    return buildButton(
+      onPressed: effectiveEnabled ? activate : null,
+      effectiveEnabled: effectiveEnabled,
+      isChecked: checked,
+      semanticsRole: SemanticsRole.menuItemCheckbox,
+      mapStates: (states) =>
+          NakedMenuItemState<T>(states: states, value: value),
+    );
+  }
+}
+
+/// Provides controlled selection state to [NakedMenuRadioItem] descendants.
+class NakedMenuRadioGroup<T> extends InheritedWidget {
+  /// Creates a typed menu radio group.
+  const NakedMenuRadioGroup({
+    super.key,
+    required this.value,
+    required this.onChanged,
+    this.enabled = true,
+    required super.child,
+  });
+
+  /// The selected item value.
+  final T value;
+
+  /// Called when an item requests selection.
+  final ValueChanged<T>? onChanged;
+
+  /// Whether items in the group can be activated.
+  final bool enabled;
+
+  /// Returns the nearest radio group of type [S].
+  static NakedMenuRadioGroup<S> of<S>(BuildContext context) {
+    final group = context
+        .dependOnInheritedWidgetOfExactType<NakedMenuRadioGroup<S>>();
+    assert(
+      group != null,
+      'NakedMenuRadioItem<$S> requires a NakedMenuRadioGroup<$S>.',
+    );
+
+    return group!;
+  }
+
+  @override
+  bool updateShouldNotify(NakedMenuRadioGroup<T> oldWidget) =>
+      value != oldWidget.value ||
+      onChanged != oldWidget.onChanged ||
+      enabled != oldWidget.enabled;
+}
+
+/// A mutually exclusive item in a [NakedMenuRadioGroup].
+class NakedMenuRadioItem<T> extends OverlayItem<T, NakedMenuItemState<T>> {
+  /// Creates a typed menu radio item.
+  const NakedMenuRadioItem({
+    super.key,
+    required super.value,
+    this.closeOnActivate = true,
+    super.enabled = true,
+    super.semanticLabel,
+    super.child,
+    super.builder,
+  });
+
+  /// Whether activation closes the complete menu hierarchy.
+  final bool closeOnActivate;
+
+  @override
+  Widget build(BuildContext context) {
+    final menu = _NakedMenuScope.of<T>(context);
+    final group = NakedMenuRadioGroup.of<T>(context);
+    final checked = group.value == value;
+    final effectiveEnabled =
+        enabled &&
+        group.enabled &&
+        (group.onChanged != null || menu.onSelected != null);
+
+    void activate() {
+      menu.onSelected?.call(value);
+      group.onChanged?.call(value);
+      if (closeOnActivate) menu.closeAll();
+    }
+
+    return buildButton(
+      onPressed: effectiveEnabled ? activate : null,
+      effectiveEnabled: effectiveEnabled,
+      isChecked: checked,
+      inMutuallyExclusiveGroup: true,
+      semanticsRole: SemanticsRole.menuItemRadio,
+      mapStates: (states) =>
+          NakedMenuItemState<T>(states: states, value: value),
+    );
+  }
+}
+
+class _OpenSubmenuIntent extends Intent {
+  const _OpenSubmenuIntent();
+}
+
+class _CloseSubmenuIntent extends Intent {
+  const _CloseSubmenuIntent();
+}
+
+/// A recursively nestable submenu inside a [NakedMenu].
+class NakedMenuSubmenu<T> extends StatefulWidget {
+  /// Creates a submenu with a menu-item trigger.
+  const NakedMenuSubmenu({
+    super.key,
+    this.child,
+    this.builder,
+    required this.overlayBuilder,
+    this.controller,
+    this.enabled = true,
+    this.hoverDelay = const Duration(milliseconds: 100),
+    this.positioning = const OverlayPositionConfig(
+      side: OverlaySide.right,
+      alignment: OverlayAlignment.start,
+      sideOffset: 4,
+    ),
+    this.focusNode,
+    this.semanticLabel,
+    this.onOpen,
+    this.onClose,
+  }) : assert(
+         child != null || builder != null,
+         'Either child or builder must be provided',
+       );
+
+  /// Static trigger content.
+  final Widget? child;
+
+  /// Builds the trigger with its current interaction and open state.
+  final ValueWidgetBuilder<NakedMenuState>? builder;
+
+  /// Builds the child menu panel.
+  final RawMenuAnchorOverlayBuilder overlayBuilder;
+
+  /// Optional controller for programmatic submenu control.
+  final MenuController? controller;
+
+  /// Whether the submenu can be opened.
+  final bool enabled;
+
+  /// Delay before pointer hover opens or closes the submenu.
+  final Duration hoverDelay;
+
+  /// Placement of the child panel relative to the submenu trigger.
+  final OverlayPositionConfig positioning;
+
+  /// Optional focus node for the submenu trigger.
+  final FocusNode? focusNode;
+
+  /// Accessible name for the submenu trigger.
+  final String? semanticLabel;
+
+  /// Called after the submenu opens.
+  final VoidCallback? onOpen;
+
+  /// Called after the submenu closes.
+  final VoidCallback? onClose;
+
+  @override
+  State<NakedMenuSubmenu<T>> createState() => _NakedMenuSubmenuState<T>();
+}
+
+class _NakedMenuSubmenuState<T> extends State<NakedMenuSubmenu<T>> {
+  final MenuController _internalController = MenuController();
+  final FocusNode _internalFocusNode = FocusNode(
+    debugLabel: 'NakedMenuSubmenu trigger',
+  );
+  final GlobalKey _overlayKey = GlobalKey();
+  Timer? _hoverTimer;
+  bool _focusFirstOnOpen = false;
+  bool _restoreFocusOnClose = false;
+  late _NakedMenuScope<T> _parentMenu;
+
+  MenuController get _controller => widget.controller ?? _internalController;
+  FocusNode get _focusNode => widget.focusNode ?? _internalFocusNode;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _parentMenu = _NakedMenuScope.of<T>(context);
+  }
+
+  void _cancelHoverTimer() {
+    _hoverTimer?.cancel();
+    _hoverTimer = null;
+  }
+
+  void _open({required bool focusFirst}) {
+    if (!widget.enabled) return;
+    _cancelHoverTimer();
+    _focusFirstOnOpen = _focusFirstOnOpen || focusFirst;
+    if (_controller.isOpen) {
+      if (_focusFirstOnOpen) _scheduleFirstItemFocus();
+      return;
+    }
+    _parentMenu.controller.closeChildren();
+    _controller.open();
+  }
+
+  void _close({required bool restoreFocus}) {
+    _cancelHoverTimer();
+    _restoreFocusOnClose = restoreFocus;
+    _controller.close();
+  }
+
+  void _toggle() =>
+      _controller.isOpen ? _close(restoreFocus: true) : _open(focusFirst: true);
+
+  void _scheduleHoverOpen() {
+    _cancelHoverTimer();
+    _hoverTimer = Timer(widget.hoverDelay, () {
+      if (mounted) _open(focusFirst: false);
+    });
+  }
+
+  void _scheduleHoverClose() {
+    _cancelHoverTimer();
+    _hoverTimer = Timer(widget.hoverDelay, () {
+      if (mounted) _close(restoreFocus: false);
+    });
+  }
+
+  void _scheduleFirstItemFocus() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_controller.isOpen) return;
+      final overlayContext = _overlayKey.currentContext;
+      if (overlayContext == null) return;
+      FocusScope.of(overlayContext).nextFocus();
+      _focusFirstOnOpen = false;
+    });
+  }
+
+  void _handleOpen() {
+    if (mounted) setState(() {});
+    widget.onOpen?.call();
+    if (_focusFirstOnOpen) _scheduleFirstItemFocus();
+  }
+
+  void _handleClose() {
+    if (mounted) setState(() {});
+    widget.onClose?.call();
+    if (_restoreFocusOnClose) _focusNode.requestFocus();
+    _restoreFocusOnClose = false;
+    _focusFirstOnOpen = false;
+  }
+
+  Map<ShortcutActivator, Intent> _shortcuts(TextDirection direction) => {
+    SingleActivator(
+      direction == TextDirection.ltr
+          ? LogicalKeyboardKey.arrowRight
+          : LogicalKeyboardKey.arrowLeft,
+    ): const _OpenSubmenuIntent(),
+    SingleActivator(
+      direction == TextDirection.ltr
+          ? LogicalKeyboardKey.arrowLeft
+          : LogicalKeyboardKey.arrowRight,
+    ): const _CloseSubmenuIntent(),
+  };
+
+  Map<Type, Action<Intent>> get _actions => {
+    _OpenSubmenuIntent: CallbackAction<_OpenSubmenuIntent>(
+      onInvoke: (_) {
+        _open(focusFirst: true);
+        return null;
+      },
+    ),
+    _CloseSubmenuIntent: CallbackAction<_CloseSubmenuIntent>(
+      onInvoke: (_) {
+        _close(restoreFocus: true);
+        return null;
+      },
+    ),
+  };
+
+  @override
+  void didUpdateWidget(covariant NakedMenuSubmenu<T> oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!widget.enabled && _controller.isOpen) {
+      _close(restoreFocus: false);
+    }
+  }
+
+  @override
+  void dispose() {
+    _cancelHoverTimer();
+    _internalFocusNode.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final direction = Directionality.of(context);
+    final button = NakedButton(
+      onPressed: widget.enabled ? _toggle : null,
+      enabled: widget.enabled,
+      focusNode: _focusNode,
+      semanticLabel: widget.semanticLabel,
+      child: widget.child,
+      builder: (context, state, child) {
+        final trigger = NakedStateScopeBuilder(
+          value: NakedMenuState(
+            states: state.states,
+            isOpen: _controller.isOpen,
+          ),
+          child: child,
+          builder: widget.builder,
+        );
+
+        return widget.semanticLabel == null
+            ? trigger
+            : ExcludeSemantics(child: trigger);
+      },
+    );
+    final trigger = MouseRegion(
+      onEnter: (_) => _scheduleHoverOpen(),
+      onExit: (_) => _scheduleHoverClose(),
+      child: MergeSemantics(
+        child: Semantics(
+          role: SemanticsRole.menuItem,
+          expanded: _controller.isOpen,
+          child: button,
+        ),
+      ),
+    );
+
+    return AnchoredOverlayShell(
+      controller: _controller,
+      triggerFocusNode: _focusNode,
+      consumeOutsideTaps: false,
+      closeOnClickOutside: true,
+      positioning: widget.positioning,
+      onOpen: _handleOpen,
+      onClose: _handleClose,
+      onDismissRequested: () => _close(restoreFocus: true),
+      overlayBuilder: (context, info) {
+        return Shortcuts(
+          shortcuts: _shortcuts(direction),
+          child: Actions(
+            actions: _actions,
+            child: MouseRegion(
+              key: _overlayKey,
+              onEnter: (_) => _cancelHoverTimer(),
+              child: Semantics(
+                role: SemanticsRole.menu,
+                container: true,
+                explicitChildNodes: true,
+                child: _NakedMenuScope<T>(
+                  onSelected: _parentMenu.onSelected,
+                  controller: _controller,
+                  rootController: _parentMenu.rootController,
+                  child: Builder(
+                    builder: (context) => widget.overlayBuilder(context, info),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+      child: Shortcuts(
+        shortcuts: _shortcuts(direction),
+        child: Actions(actions: _actions, child: trigger),
+      ),
     );
   }
 }
@@ -232,6 +647,18 @@ class NakedMenu<T> extends StatefulWidget {
 
   /// Type alias for [NakedMenuItem] for cleaner API access.
   static final Item = NakedMenuItem.new;
+
+  /// Type alias for [NakedMenuCheckboxItem].
+  static final CheckboxItem = NakedMenuCheckboxItem.new;
+
+  /// Type alias for [NakedMenuRadioGroup].
+  static final RadioGroup = NakedMenuRadioGroup.new;
+
+  /// Type alias for [NakedMenuRadioItem].
+  static final RadioItem = NakedMenuRadioItem.new;
+
+  /// Type alias for [NakedMenuSubmenu].
+  static final Submenu = NakedMenuSubmenu.new;
 
   /// The static trigger widget.
   final Widget? child;
@@ -319,6 +746,7 @@ class _NakedMenuState<T> extends State<NakedMenu<T>>
 
   @override
   Widget build(BuildContext context) {
+    final parentMenu = _NakedMenuScope.maybeOf<T>(context);
     Widget button = NakedButton(
       onPressed: _toggle,
       focusNode: widget.triggerFocusNode,
@@ -358,8 +786,11 @@ class _NakedMenuState<T> extends State<NakedMenu<T>>
             container: true,
             explicitChildNodes: true,
             child: _NakedMenuScope<T>(
-              onSelected: _handleSelection,
+              onSelected: widget.onSelected == null && parentMenu != null
+                  ? parentMenu.onSelected
+                  : _handleSelection,
               controller: widget.controller,
+              rootController: parentMenu?.rootController ?? widget.controller,
               child: Builder(
                 builder: (context) => widget.overlayBuilder(context, info),
               ),

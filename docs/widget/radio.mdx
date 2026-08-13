@@ -14,7 +14,7 @@ Headless radio button component. RadioGroup coordinates keyboard navigation and 
 - **Filters**: Select one filter option from a category
 
 <Info>
-  Full examples are available in [`example/lib/api/naked_radio.0.dart`](https://github.com/btwld/naked_ui/blob/main/example/lib/api/naked_radio.0.dart).
+  Full examples are available in [`packages/example/lib/api/naked_radio.0.dart`](https://github.com/btwld/naked_ui/blob/main/packages/example/lib/api/naked_radio.0.dart).
 </Info>
 
 ## Basic implementation
@@ -153,6 +153,8 @@ const NakedRadio<T>({
   this.onPressChange,
   this.builder,
   this.groupRegistry,
+  this.semanticLabel,
+  this.excludeSemantics = false,
 })
 ```
 
@@ -163,6 +165,8 @@ Key notes:
 - `toggleable` lets the selected radio clear the group when activated again
 - Pass `focusNode` to integrate with external focus management
 - interaction callbacks: `onPressChange`/`onHoverChange`/`onFocusChange` (prefer `builder` pattern)
+- `semanticLabel` → override the accessible name for the radio
+- `excludeSemantics` → hide the radio and its descendants from the semantic tree
 
 ## Accessibility Tips
 
