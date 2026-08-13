@@ -17,7 +17,7 @@ The complete documentation covers detailed component APIs and examples, guides a
 ## Supported Components
 
 - NakedButton — button interactions (hover, press, focus)
-- NakedLink — native Link navigation, semantics, and Enter-only activation
+- NakedLink — link semantics and Enter-only activation
 - NakedCheckbox — toggle behavior and semantics
 - NakedRadio — single‑select radio with group management
 - NakedSelect — dropdown/select with keyboard navigation
@@ -94,18 +94,20 @@ NakedButton(
 
 ### Custom Link
 
-Use a Link for navigation rather than styling a Button like text. `linkUrl` is
-required, while `enabled` is the only availability switch. Naked UI retains a
-native anchor through Flutter's official `url_launcher.Link`; ordinary external
-web navigation opens in the current tab, while internal/non-web defaults use
-its `FollowLink` path. Enter and Numpad Enter activate, while
-Space remains available to the page. Validate destinations before constructing
-a Link—Naked UI accepts every `Uri` unchanged.
+Use a Link for navigation rather than styling a Button like text. Naked UI owns
+the link interaction contract; the caller owns routing or launching. Enter and
+Numpad Enter activate, while Space remains available to the page. A Link is
+interactive only when `enabled` is true and `onPressed` is non-null.
+
+`linkUrl` is optional semantics metadata. On Flutter web it also becomes an
+anchor `href`, so omit it when `onPressed` performs navigation; otherwise one
+DOM activation can have two navigation owners. Validate destinations before
+passing them to either API. Modified-click policy belongs to the caller or an
+opt-in anchor/launcher layer.
 
 ```dart
 NakedLink(
-  linkUrl: Uri.parse('https://example.com/docs'),
-  onActivated: (url) => debugPrint('Activated $url'),
+  onPressed: () => Navigator.of(context).pushNamed('/docs'),
   child: const Text('Documentation'),
   builder: (context, state, child) => DecoratedBox(
     decoration: BoxDecoration(
@@ -115,27 +117,6 @@ NakedLink(
       ),
     ),
     child: child,
-  ),
-)
-```
-
-### Custom Link Resolution
-
-Install a resolver around a subtree when the application, rather than the
-platform, should route ordinary Link activations. Returning `handled` prevents
-the default navigation; `onActivated` remains an observation hook and cannot
-cancel it. Modified, middle, and secondary clicks stay browser-owned.
-
-```dart
-NakedLinkResolver(
-  resolve: (context, url) {
-    Navigator.of(context).pushNamed(url.toString());
-    return NakedLinkResolution.handled;
-  },
-  child: NakedLink(
-    linkUrl: Uri.parse('/account'),
-    onActivated: (url) => debugPrint('Activated $url'),
-    child: const Text('Account settings'),
   ),
 )
 ```

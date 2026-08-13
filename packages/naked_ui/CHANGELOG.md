@@ -2,24 +2,11 @@
 
 ### Features
 
-- Add `NakedLink` with a required destination URI, native web anchors through
-  Flutter's official `url_launcher.Link`, current-tab HTTP(S) web defaults,
-  and official `FollowLink` defaults for scheme-less routes, browser/OS handler
-  schemes such as `mailto:`, `tel:`, and custom schemes, and non-web platforms.
-  Primary, keyboard, and semantic activation of the `javascript:` scheme
-  remains on `url_launcher_web`'s guarded launch path. The widget includes
-  optional subtree
-  `NakedLinkResolver` routing and non-canceling `onActivated` observation;
-  exposes Link semantics plus observable hover/focus/press/disabled state; and
-  supports caller-owned focus nodes, primary and semantic activation, and
-  Enter/Numpad Enter. Space and browser-owned auxiliary actions remain
-  unclaimed; callers own URI validation, visited state, styling, and localized
-  copy.
-- Safely clear Link interaction callbacks after dynamic disabling, restore
-  hover when re-enabled under a stationary pointer, suppress held-key repeats,
-  preserve stateful descendants across availability changes, retain disabled
-  URIs in state, and remove disabled destination metadata from semantics and
-  the web DOM.
+- Add dependency-free `NakedLink` with Link semantics, optional destination
+  metadata, caller-owned activation, observable hover/focus/press/disabled
+  state, and caller-owned focus nodes. Primary tap, semantic tap, Enter, and
+  Numpad Enter activate; Space and held-key repeats remain unclaimed. Inert
+  Links expose no Link role, destination, focus stop, or tap action.
 
 ## 1.0.0-beta.10
 

@@ -37,26 +37,6 @@ void main() {
     );
   });
 
-  test('Link evidence preserves all required stable artifact names', () {
-    for (final entry in <(String, String), String>{
-      ('default_inline', 'macos'): 'link__default_inline__macos__reference.png',
-      ('hover', 'web'): 'link__hover__web__reference.png',
-      ('keyboard_focus', 'macos'): 'link__keyboard_focus__macos__reference.png',
-      ('disabled', 'android'): 'link__disabled__android__reference.png',
-      ('external_hint', 'web'): 'link__external_hint__web__reference.png',
-      ('long_text_200', 'macos'): 'link__long_text_200__macos__reference.png',
-      ('rtl', 'web'): 'link__rtl__web__reference.png',
-    }.entries) {
-      final (scenario, target) = entry.key;
-      final evidence = ScreenshotEvidence(
-        component: 'link',
-        scenario: scenario,
-      );
-      expect(evidence.artifactNameFor(target), entry.value);
-      expect(evidence.manifestEntryFor(target)['testResult'], 'pass');
-    }
-  });
-
   test('alert dialog evidence uses every required native artifact name', () {
     expect(
       ScreenshotEvidence(

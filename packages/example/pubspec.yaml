@@ -19,14 +19,10 @@ dependencies:
   google_fonts: ^6.1.0
 
 dev_dependencies:
-  flutter_driver:
-    sdk: flutter
   flutter_test:
     sdk: flutter
   integration_test:
     sdk: flutter
-  web: ^1.1.1
-  webdriver: ^3.1.0
 
 flutter:
   uses-material-design: true

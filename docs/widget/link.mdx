@@ -1,21 +1,21 @@
 ---
 title: NakedLink
-description: Headless Flutter link with native navigation, accessible semantics, resolution policy, and observable interaction state
-keywords: [flutter, link, navigation, headless, accessibility, semantics, keyboard, web]
+description: Headless Flutter link with caller-owned navigation, accessible semantics, and observable interaction state
+keywords: [flutter, link, navigation, headless, accessibility, semantics, keyboard]
 ---
 
-`NakedLink` is a navigation primitive with no built-in styling. It exposes
-hover, focus, press, disabled, and destination state while preserving native
-web anchors through `url_launcher.Link`.
+`NakedLink` is a dependency-free navigation primitive with no built-in styling
+or launching policy. It supplies Link semantics and the correct keyboard
+contract while the application owns routing, URL launching, and validation.
 
 ## When to use this
 
-- **Navigation**: Open a route, document, website, email address, or other URI
-- **Inline links**: Compose navigation into a sentence without button styling
-- **Custom routing**: Let an application resolver handle ordinary activation
-- **Design systems**: Render brand-specific visuals from observable link state
+- **Navigation**: Move to a route, document, website, or other destination
+- **Inline links**: Compose navigation into text without button behavior
+- **Design systems**: Render custom visuals from hover, focus, press, and
+  disabled state
 
-Use a button for an in-place action. Link semantics communicate that activation
+Use a button for an in-place action. A Link communicates that activation
 navigates to or references another destination.
 
 <Info>
@@ -26,8 +26,7 @@ navigates to or references another destination.
 
 ```dart
 NakedLink(
-  linkUrl: Uri.parse('https://example.com/docs'),
-  onActivated: (url) => debugPrint('Activated $url'),
+  onPressed: () => Navigator.of(context).pushNamed('/docs'),
   child: const Text('Documentation'),
   builder: (context, state, child) {
     return DecoratedBox(
@@ -45,49 +44,42 @@ NakedLink(
 )
 ```
 
-## Application routing
+## Navigation ownership
 
-`onActivated` observes an accepted ordinary activation but cannot cancel
-navigation. Wrap a subtree in `NakedLinkResolver` when application routing
-should replace the platform default:
+`onPressed` is the only application activation callback. `NakedLink` does not
+call a launcher or choose a router, so applications can use `Navigator`, a
+routing package, or an optional launcher dependency without adding that policy
+to every consumer.
 
-```dart
-NakedLinkResolver(
-  resolve: (context, url) {
-    Navigator.of(context).pushNamed(url.toString());
-    return NakedLinkResolution.handled;
-  },
-  child: NakedLink(
-    linkUrl: Uri.parse('/account'),
-    child: const Text('Account settings'),
-  ),
-)
-```
+`linkUrl` is optional destination metadata exposed through Flutter semantics.
+On Flutter web, a non-null semantics URL becomes an anchor `href`. Omit
+`linkUrl` when `onPressed` performs navigation; otherwise one DOM activation
+can call the callback and follow the anchor. Callers must validate destinations
+before passing them to either API.
 
-Return `NakedLinkResolution.platformDefault` to delegate navigation. On web,
-HTTP and HTTPS destinations open in the current tab. Scheme-less routes and
-browser/OS handler schemes such as `mailto:`, `tel:`, and custom schemes use
-`url_launcher.Link`'s `FollowLink` path so the browser and platform plugin
-retain ownership. Primary, keyboard, and semantic activation of the
-`javascript:` scheme remains on `url_launcher_web`'s guarded launch path.
-Auxiliary actions remain browser-owned, so callers must validate destinations.
+Modified primary clicks follow the ordinary `onPressed` path. If an application
+needs browser-style open-in-new-tab behavior, its callback or an opt-in
+anchor/launcher layer must implement that policy.
+
+A Link is interactive only when `enabled` is true and `onPressed` is non-null.
+Otherwise it has no Link role, destination URL, tap action, or focus stop.
 
 ## Activation behavior
 
 | Input | Behavior |
 | --- | --- |
-| Primary tap, Enter, Numpad Enter, semantic tap | Observer, then nearest resolver, then platform default when unhandled |
-| Modified primary click | Browser-owned; bypasses observer and resolver |
-| Middle or secondary click | Left available to browser or composed context-menu behavior |
-| Space | Does not activate, preserving normal page scrolling |
-
-Disabled links expose no link role, destination URL, tap action, or focus stop.
+| Primary tap | Calls `onPressed` once |
+| Enter or Numpad Enter | Calls `onPressed` once; held-key repeats are ignored |
+| Semantic tap | Calls the same `onPressed` path |
+| Space | Remains unclaimed so the page can scroll |
+| Modified primary click | Calls `onPressed`; modifier policy is caller-owned |
+| Secondary click | Remains unclaimed |
 
 ## Accessible naming
 
 Visible child text supplies the accessible name by default. A non-empty,
 caller-localized `semanticLabel` replaces descendant naming semantics so the
-link is announced once. Null and whitespace-only labels preserve the visible
+Link is announced once. Null and whitespace-only labels preserve the visible
 child name. Use `semanticHint` only when the result is not clear from the name.
 
 Set `excludeSemantics` only when the surrounding application supplies an
@@ -100,8 +92,8 @@ const NakedLink({
   Key? key,
   Widget? child,
   ValueWidgetBuilder<NakedLinkState>? builder,
-  required Uri linkUrl,
-  ValueChanged<Uri>? onActivated,
+  VoidCallback? onPressed,
+  Uri? linkUrl,
   bool enabled = true,
   FocusNode? focusNode,
   bool autofocus = false,
@@ -118,10 +110,14 @@ const NakedLink({
 
 ## Properties
 
-#### linkUrl → `Uri`
+#### onPressed → `VoidCallback?`
 
-The exact destination exposed to navigation and assistive technologies. Validate
-untrusted destinations before constructing the link.
+Performs caller-owned navigation. A null callback makes the Link inert.
+
+#### linkUrl → `Uri?`
+
+Optional destination metadata for assistive technologies. On web it also maps
+to an anchor `href` while the Link is enabled.
 
 #### child → `Widget?`
 
@@ -132,13 +128,9 @@ The visual content. Supply `child`, `builder`, or both.
 Builds visuals from an immutable state containing interaction flags and the
 current `linkUrl`.
 
-#### onActivated → `ValueChanged<Uri>?`
-
-Observes ordinary accepted activation before resolver and platform navigation.
-
 #### enabled → `bool`
 
-The only availability switch. Defaults to `true`.
+Allows activation when `onPressed` is also non-null. Defaults to `true`.
 
 #### focusNode → `FocusNode?`
 
@@ -146,7 +138,8 @@ Optional caller-owned focus node. `NakedLink` never disposes it.
 
 #### semanticLabel → `String?`
 
-Optional localized accessible-name override. Blank values are treated as absent.
+Optional localized accessible-name override. Blank values are treated as
+absent.
 
 #### semanticHint → `String?`
 
@@ -154,4 +147,5 @@ Optional localized description of a non-obvious navigation result.
 
 #### excludeSemantics → `bool`
 
-Hides the link and its subtree from accessibility services. Defaults to `false`.
+Hides the Link and its subtree from accessibility services. Defaults to
+`false`.

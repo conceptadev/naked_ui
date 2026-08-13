@@ -8,7 +8,7 @@ const goldenSurfaceSize = Size(800, 600);
 const goldenDevicePixelRatio = 1.0;
 const goldenFontFamily = 'GoldenRoboto';
 
-/// Loads the pinned text and icon fonts used by every example golden.
+/// Loads the checked-in Apache-2.0 Roboto font used by every example golden.
 Future<void> loadGoldenTestFont() async {
   final packageRelative = File('test/goldens/fonts/Roboto-Regular.ttf');
   final workspaceRelative = File(
@@ -20,37 +20,8 @@ Future<void> loadGoldenTestFont() async {
   if (!fontFile.existsSync()) {
     throw StateError('Unable to locate the checked-in golden Roboto font.');
   }
-  await _loadFont(goldenFontFamily, fontFile);
-
-  final flutterRoot = Platform.environment['FLUTTER_ROOT'];
-  final executableFlutterRoot = File(
-    Platform.resolvedExecutable,
-  ).parent.parent.parent.parent.parent.path;
-  final materialIconsCandidates = [
-    if (flutterRoot != null)
-      File(
-        '$flutterRoot/bin/cache/artifacts/material_fonts/'
-        'MaterialIcons-Regular.otf',
-      ),
-    File(
-      '$executableFlutterRoot/bin/cache/artifacts/material_fonts/'
-      'MaterialIcons-Regular.otf',
-    ),
-  ];
-  final materialIcons = materialIconsCandidates
-      .where((candidate) => candidate.existsSync())
-      .firstOrNull;
-  if (materialIcons == null) {
-    throw StateError(
-      'Unable to locate MaterialIcons-Regular.otf in the pinned Flutter SDK.',
-    );
-  }
-  await _loadFont('MaterialIcons', materialIcons);
-}
-
-Future<void> _loadFont(String family, File file) async {
-  final bytes = await file.readAsBytes();
-  final loader = FontLoader(family)
+  final bytes = await fontFile.readAsBytes();
+  final loader = FontLoader(goldenFontFamily)
     ..addFont(Future<ByteData>.value(ByteData.sublistView(bytes)));
   await loader.load();
 }

@@ -52,12 +52,6 @@ jobs:
           "${{ steps.chrome.outputs.chrome-path }}" --version
           "${{ steps.chrome.outputs.chromedriver-path }}" --version
 
-      - name: Run NakedLink browser unit tests
-        working-directory: packages/naked_ui
-        env:
-          CHROME_EXECUTABLE: ${{ steps.chrome.outputs.chrome-path }}
-        run: flutter test --platform chrome test/src/naked_link_web_test.dart
-
       - name: Run integration tests on web
         working-directory: packages/example
         run: |
@@ -75,15 +69,6 @@ jobs:
             --chrome-binary="${{ steps.chrome.outputs.chrome-path }}" \
             2>&1 | tee build/web-integration.log
 
-          flutter drive \
-            --driver=test_driver/link_browser_driver.dart \
-            --target=integration_test/link_browser_driver_app.dart \
-            -d web-server \
-            --browser-name=chrome \
-            --browser-dimension=800x600@1 \
-            --chrome-binary="${{ steps.chrome.outputs.chrome-path }}" \
-            2>&1 | tee build/web-link-browser.log
-
       - name: Verify web integration evidence
         run: |
           log=packages/example/build/web-integration.log
@@ -92,8 +77,6 @@ jobs:
             echo "The in-app test runner reported failures." >&2
             exit 1
           fi
-          grep -F "Trusted browser Link ownership checks passed." \
-            packages/example/build/web-link-browser.log
 
       - name: Upload web integration evidence
         if: always()
@@ -102,7 +85,6 @@ jobs:
           name: integration-web-${{ github.sha }}
           path: |
             packages/example/build/web-integration.log
-            packages/example/build/web-link-browser.log
             packages/example/build/integration_response_data.json
           if-no-files-found: warn
           retention-days: 14

@@ -7,60 +7,45 @@ import 'package:naked_ui/naked_ui.dart';
 
 import '../test_helpers.dart';
 
-final _destination = Uri.parse('https://example.com/docs');
-
 void main() {
-  group('NakedLink public state contract', () {
+  group('NakedLink public contract', () {
     test('requires either a child or builder', () {
-      expect(() => NakedLink(linkUrl: _destination), throwsAssertionError);
+      expect(() => NakedLink(onPressed: () {}), throwsAssertionError);
     });
 
-    testWidgets('renders its child without a builder', (tester) async {
-      await tester.pumpWidget(
-        MaterialApp(
-          home: NakedLink(
-            linkUrl: _destination,
-            child: const Text('Documentation'),
-          ),
-        ),
-      );
-
-      expect(find.text('Documentation'), findsOneWidget);
-    });
-
-    testWidgets('builder and scope receive one immutable state snapshot', (
+    testWidgets('works without a Material ancestor and exposes state', (
       tester,
     ) async {
       final linkUrl = Uri.parse('https://example.com/docs');
       NakedLinkState? builderState;
       NakedLinkState? scopedState;
-      Widget? receivedChild;
 
       await tester.pumpWidget(
-        MaterialApp(
-          home: NakedLink(
-            linkUrl: linkUrl,
-            child: const Text('Documentation'),
-            builder: (context, state, child) {
-              builderState = state;
-              scopedState = NakedLinkState.of(context);
-              receivedChild = child;
-              return child!;
-            },
+        WidgetsApp(
+          color: const Color(0xffffffff),
+          builder: (context, child) => Center(
+            child: NakedLink(
+              linkUrl: linkUrl,
+              onPressed: () {},
+              child: const Text('Documentation'),
+              builder: (context, state, child) {
+                builderState = state;
+                scopedState = NakedLinkState.of(context);
+                return child!;
+              },
+            ),
           ),
         ),
       );
 
-      expect(builderState, isNotNull);
+      expect(find.text('Documentation'), findsOneWidget);
       expect(scopedState, same(builderState));
-      expect(receivedChild, isA<Text>());
       expect(builderState!.linkUrl, linkUrl);
       expect(builderState!.states, isEmpty);
       expect(
         () => builderState!.states.add(WidgetState.hovered),
         throwsUnsupportedError,
       );
-      expect(builderState!.states, isEmpty);
     });
 
     test('state equality and hash include states and URL metadata', () {
@@ -83,241 +68,8 @@ void main() {
     });
   });
 
-  group('NakedLink resolver contract', () {
-    testWidgets('nearest resolver follows the observer with the exact URI', (
-      tester,
-    ) async {
-      final linkUrl = Uri.parse('custom-scheme:destination');
-      final events = <String>[];
-
-      await tester.pumpWidget(
-        _testApp(
-          NakedLinkResolver(
-            resolve: (context, resolvedUrl) {
-              events.add('outer:$resolvedUrl');
-              expect(resolvedUrl, linkUrl);
-              return NakedLinkResolution.handled;
-            },
-            child: NakedLinkResolver(
-              resolve: (context, resolvedUrl) {
-                events.add('inner:$resolvedUrl');
-                expect(context, same(tester.element(find.byType(NakedLink))));
-                return NakedLinkResolution.handled;
-              },
-              child: NakedLink(
-                linkUrl: linkUrl,
-                onActivated: (activatedUrl) {
-                  events.add('observer:$activatedUrl');
-                },
-                child: const SizedBox(
-                  width: 160,
-                  height: 48,
-                  child: Text('Link'),
-                ),
-              ),
-            ),
-          ),
-        ),
-      );
-
-      await tester.tap(find.text('Link'));
-      await tester.pump();
-
-      expect(events, ['observer:$linkUrl', 'inner:$linkUrl']);
-    });
-
-    testWidgets('platformDefault falls through to platform navigation', (
-      tester,
-    ) async {
-      final platformCalls = <MethodCall>[];
-      final messenger =
-          TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
-      const launcherChannel = MethodChannel('plugins.flutter.io/url_launcher');
-      messenger.setMockMethodCallHandler(launcherChannel, (call) async {
-        platformCalls.add(call);
-        return true;
-      });
-      addTearDown(
-        () => messenger.setMockMethodCallHandler(launcherChannel, null),
-      );
-
-      await tester.pumpWidget(
-        _testApp(
-          NakedLink(
-            linkUrl: Uri.parse('https://example.com/platform-default'),
-            child: const SizedBox(width: 160, height: 48, child: Text('Link')),
-          ),
-          resolve: (_, _) => NakedLinkResolution.platformDefault,
-        ),
-      );
-
-      await tester.tap(find.text('Link'));
-      await tester.pump();
-      await tester.pump();
-
-      expect(platformCalls.map((call) => call.method), contains('launch'));
-    });
-
-    testWidgets('no resolver is equivalent to platformDefault', (tester) async {
-      final platformCalls = <MethodCall>[];
-      final messenger =
-          TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
-      const launcherChannel = MethodChannel('plugins.flutter.io/url_launcher');
-      messenger.setMockMethodCallHandler(launcherChannel, (call) async {
-        platformCalls.add(call);
-        return true;
-      });
-      addTearDown(
-        () => messenger.setMockMethodCallHandler(launcherChannel, null),
-      );
-
-      await tester.pumpWidget(
-        _testApp(
-          NakedLink(
-            linkUrl: Uri.parse('https://example.com/no-resolver'),
-            child: const SizedBox(width: 160, height: 48, child: Text('Link')),
-          ),
-          includeResolver: false,
-        ),
-      );
-
-      await tester.tap(find.text('Link'));
-      await tester.pump();
-      await tester.pump();
-
-      expect(platformCalls.map((call) => call.method), contains('launch'));
-    });
-
-    testWidgets('resolver exceptions surface without default fallback', (
-      tester,
-    ) async {
-      final platformCalls = <MethodCall>[];
-      final messenger =
-          TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
-      const launcherChannel = MethodChannel('plugins.flutter.io/url_launcher');
-      messenger.setMockMethodCallHandler(launcherChannel, (call) async {
-        platformCalls.add(call);
-        return true;
-      });
-      addTearDown(
-        () => messenger.setMockMethodCallHandler(launcherChannel, null),
-      );
-      final events = <String>[];
-
-      await tester.pumpWidget(
-        _testApp(
-          NakedLink(
-            linkUrl: Uri.parse('https://example.com/resolver-error'),
-            onActivated: (_) => events.add('observer'),
-            child: const SizedBox(width: 160, height: 48, child: Text('Link')),
-          ),
-          resolve: (_, _) {
-            events.add('resolver');
-            throw StateError('resolver failure');
-          },
-        ),
-      );
-
-      await tester.tap(find.text('Link'));
-      await tester.pump();
-
-      expect(events, ['observer', 'resolver']);
-      expect(tester.takeException(), isA<StateError>());
-      expect(platformCalls, isEmpty);
-    });
-
-    testWidgets('disabled Link invokes neither observer nor resolver', (
-      tester,
-    ) async {
-      var observerCalls = 0;
-      var resolverCalls = 0;
-
-      await tester.pumpWidget(
-        _testApp(
-          NakedLink(
-            enabled: false,
-            linkUrl: Uri.parse('https://example.com/disabled'),
-            onActivated: (_) => observerCalls++,
-            child: const SizedBox(width: 160, height: 48, child: Text('Link')),
-          ),
-          resolve: (_, _) {
-            resolverCalls++;
-            return NakedLinkResolution.handled;
-          },
-        ),
-      );
-
-      await tester.tap(find.text('Link'));
-      await tester.pump();
-
-      expect(observerCalls, 0);
-      expect(resolverCalls, 0);
-    });
-  });
-
-  group('NakedLink activation contract', () {
-    testWidgets('enabled is the only availability switch and retains the URI', (
-      tester,
-    ) async {
-      const enabledKey = ValueKey('enabled');
-      const explicitDisabledKey = ValueKey('explicit-disabled');
-      var callbackCount = 0;
-      NakedLinkState? enabledState;
-      NakedLinkState? explicitDisabledState;
-
-      await tester.pumpWidget(
-        _testApp(
-          Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              NakedLink(
-                key: enabledKey,
-                linkUrl: _destination,
-                onActivated: (_) => callbackCount++,
-                builder: (context, state, child) {
-                  enabledState = state;
-                  return const SizedBox(
-                    width: 160,
-                    height: 48,
-                    child: Text('Enabled'),
-                  );
-                },
-              ),
-              NakedLink(
-                key: explicitDisabledKey,
-                enabled: false,
-                linkUrl: Uri.parse('https://example.com/unavailable'),
-                onActivated: (_) => callbackCount++,
-                builder: (context, state, child) {
-                  explicitDisabledState = state;
-                  return const SizedBox(
-                    width: 160,
-                    height: 48,
-                    child: Text('Explicitly disabled'),
-                  );
-                },
-              ),
-            ],
-          ),
-        ),
-      );
-
-      expect(enabledState!.isDisabled, isFalse);
-      expect(enabledState!.linkUrl, _destination);
-      expect(explicitDisabledState!.isDisabled, isTrue);
-      expect(
-        explicitDisabledState!.linkUrl,
-        Uri.parse('https://example.com/unavailable'),
-      );
-
-      await tester.tap(find.byKey(explicitDisabledKey));
-      await tester.pump();
-      expect(callbackCount, 0);
-      tester.expectCursor(SystemMouseCursors.click, on: enabledKey);
-      tester.expectCursor(SystemMouseCursors.basic, on: explicitDisabledKey);
-    });
-
-    testWidgets('primary tap updates press state and activates exactly once', (
+  group('NakedLink activation', () {
+    testWidgets('primary tap updates press state and activates once', (
       tester,
     ) async {
       const linkKey = ValueKey('link');
@@ -329,8 +81,7 @@ void main() {
         _testApp(
           NakedLink(
             key: linkKey,
-            linkUrl: _destination,
-            onActivated: (_) => callbackCount++,
+            onPressed: () => callbackCount++,
             onPressChange: pressChanges.add,
             builder: (context, value, child) {
               state = value;
@@ -350,7 +101,6 @@ void main() {
       await tester.pump();
       expect(state!.isPressed, isTrue);
       expect(pressChanges, [true]);
-      expect(callbackCount, 0);
 
       await gesture.up();
       await tester.pump();
@@ -359,7 +109,7 @@ void main() {
       expect(callbackCount, 1);
     });
 
-    testWidgets('canceled primary gesture clears press without activating', (
+    testWidgets('canceled and secondary gestures do not activate', (
       tester,
     ) async {
       const linkKey = ValueKey('link');
@@ -370,8 +120,7 @@ void main() {
         _testApp(
           NakedLink(
             key: linkKey,
-            linkUrl: _destination,
-            onActivated: (_) => callbackCount++,
+            onPressed: () => callbackCount++,
             onPressChange: pressChanges.add,
             child: const SizedBox(width: 160, height: 48, child: Text('Link')),
           ),
@@ -389,24 +138,6 @@ void main() {
 
       expect(pressChanges, [true, false]);
       expect(callbackCount, 0);
-    });
-
-    testWidgets('secondary and middle clicks remain unclaimed', (tester) async {
-      const linkKey = ValueKey('link');
-      var callbackCount = 0;
-      final pressChanges = <bool>[];
-
-      await tester.pumpWidget(
-        _testApp(
-          NakedLink(
-            key: linkKey,
-            linkUrl: _destination,
-            onActivated: (_) => callbackCount++,
-            onPressChange: pressChanges.add,
-            child: const SizedBox(width: 160, height: 48, child: Text('Link')),
-          ),
-        ),
-      );
 
       await tester.tapAt(
         tester.getCenter(find.byKey(linkKey)),
@@ -414,161 +145,14 @@ void main() {
         buttons: kSecondaryMouseButton,
       );
       await tester.pump();
-
+      expect(pressChanges, [true, false]);
       expect(callbackCount, 0);
-      expect(pressChanges, isEmpty);
-
-      await tester.tapAt(
-        tester.getCenter(find.byKey(linkKey)),
-        kind: PointerDeviceKind.mouse,
-        buttons: kMiddleMouseButton,
-      );
-      await tester.pump();
-
-      expect(callbackCount, 0);
-      expect(pressChanges, isEmpty);
     });
 
-    testWidgets(
-      'modified primary activation bypasses the observer and resolver',
-      (tester) async {
-        const linkKey = ValueKey('link');
-        var observerCalls = 0;
-        var resolverCalls = 0;
-
-        await tester.pumpWidget(
-          _testApp(
-            NakedLink(
-              key: linkKey,
-              linkUrl: Uri.parse('/modified-primary'),
-              onActivated: (_) => observerCalls++,
-              child: const SizedBox(
-                width: 160,
-                height: 48,
-                child: Text('Link'),
-              ),
-            ),
-            resolve: (_, _) {
-              resolverCalls++;
-              return NakedLinkResolution.handled;
-            },
-          ),
-        );
-
-        await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
-        await tester.tapAt(
-          tester.getCenter(find.byKey(linkKey)),
-          kind: PointerDeviceKind.mouse,
-        );
-        await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
-        await tester.pump();
-
-        expect(observerCalls, 0);
-        expect(resolverCalls, 0);
-      },
-    );
-
-    testWidgets(
-      'modifier pressed after pointer down keeps activation browser-owned',
-      (tester) async {
-        const linkKey = ValueKey('link');
-        var observerCalls = 0;
-        var resolverCalls = 0;
-
-        await tester.pumpWidget(
-          _testApp(
-            NakedLink(
-              key: linkKey,
-              linkUrl: Uri.parse('/modified-after-down'),
-              onActivated: (_) => observerCalls++,
-              child: const SizedBox(
-                width: 160,
-                height: 48,
-                child: Text('Link'),
-              ),
-            ),
-            resolve: (_, _) {
-              resolverCalls++;
-              return NakedLinkResolution.handled;
-            },
-          ),
-        );
-
-        final gesture = await tester.startGesture(
-          tester.getCenter(find.byKey(linkKey)),
-          kind: PointerDeviceKind.mouse,
-        );
-        var pointerIsDown = true;
-        addTearDown(() async {
-          if (pointerIsDown) await gesture.cancel();
-        });
-
-        await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
-        try {
-          await gesture.up();
-          pointerIsDown = false;
-          await tester.pump();
-
-          expect(observerCalls, 0);
-          expect(resolverCalls, 0);
-        } finally {
-          await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
-        }
-      },
-    );
-
-    testWidgets('Enter and Numpad Enter activate while Space does not', (
+    testWidgets('Enter keys activate, repeats and Space do not', (
       tester,
     ) async {
-      final focusNode = FocusNode(debugLabel: 'link test');
-      addTearDown(focusNode.dispose);
-      final events = <String>[];
-      NakedLinkState? state;
-
-      await tester.pumpWidget(
-        _testApp(
-          NakedLink(
-            focusNode: focusNode,
-            linkUrl: _destination,
-            onActivated: (_) => events.add('observer'),
-            builder: (context, value, child) {
-              state = value;
-              return const SizedBox(
-                width: 160,
-                height: 48,
-                child: Text('Link'),
-              );
-            },
-          ),
-          resolve: (_, _) {
-            events.add('resolver');
-            return NakedLinkResolution.handled;
-          },
-        ),
-      );
-      focusNode.requestFocus();
-      await tester.pump();
-      await tester.pump();
-      expect(focusNode.hasFocus, isTrue);
-
-      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
-      await tester.pump();
-      expect(events, ['observer', 'resolver']);
-
-      await tester.sendKeyEvent(LogicalKeyboardKey.numpadEnter);
-      await tester.pump();
-      expect(events, ['observer', 'resolver', 'observer', 'resolver']);
-
-      await tester.sendKeyEvent(LogicalKeyboardKey.space);
-      await tester.pump();
-      expect(events, ['observer', 'resolver', 'observer', 'resolver']);
-      expect(state!.isPressed, isFalse);
-    });
-
-    testWidgets('a held Enter key activates only once per key sequence', (
-      tester,
-    ) async {
-      final focusNode = FocusNode(debugLabel: 'repeating link');
+      final focusNode = FocusNode(debugLabel: 'link activation');
       addTearDown(focusNode.dispose);
       var callbackCount = 0;
 
@@ -576,8 +160,7 @@ void main() {
         _testApp(
           NakedLink(
             focusNode: focusNode,
-            linkUrl: _destination,
-            onActivated: (_) => callbackCount++,
+            onPressed: () => callbackCount++,
             child: const Text('Link'),
           ),
         ),
@@ -587,37 +170,16 @@ void main() {
 
       await tester.sendKeyDownEvent(LogicalKeyboardKey.enter);
       await tester.sendKeyRepeatEvent(LogicalKeyboardKey.enter);
-      await tester.sendKeyRepeatEvent(LogicalKeyboardKey.enter);
       await tester.sendKeyUpEvent(LogicalKeyboardKey.enter);
-      await tester.pump();
-
       expect(callbackCount, 1);
-    });
 
-    testWidgets('long-press selection wins over Link activation', (
-      tester,
-    ) async {
-      var callbackCount = 0;
-
-      await tester.pumpWidget(
-        _testApp(
-          NakedLink(
-            linkUrl: _destination,
-            onActivated: (_) => callbackCount++,
-            child: const SelectableText('Selectable documentation text'),
-          ),
-        ),
-      );
-
-      await tester.longPress(find.text('Selectable documentation text'));
+      await tester.sendKeyEvent(LogicalKeyboardKey.numpadEnter);
+      await tester.sendKeyEvent(LogicalKeyboardKey.space);
       await tester.pump();
-
-      final editable = tester.widget<EditableText>(find.byType(EditableText));
-      expect(editable.controller.selection.isCollapsed, isFalse);
-      expect(callbackCount, 0);
+      expect(callbackCount, 2);
     });
 
-    testWidgets('feedback occurs only for accepted enabled activation', (
+    testWidgets('feedback occurs only for accepted opted-in activation', (
       tester,
     ) async {
       final oldPlatform = debugDefaultTargetPlatformOverride;
@@ -632,8 +194,7 @@ void main() {
       });
 
       try {
-        var enabled = true;
-        var feedback = true;
+        var enableFeedback = true;
         late StateSetter rebuild;
         await tester.pumpWidget(
           _testApp(
@@ -641,15 +202,9 @@ void main() {
               builder: (context, setState) {
                 rebuild = setState;
                 return NakedLink(
-                  enabled: enabled,
-                  enableFeedback: feedback,
-                  linkUrl: _destination,
-                  onActivated: (_) {},
-                  child: const SizedBox(
-                    width: 160,
-                    height: 48,
-                    child: Text('Link'),
-                  ),
+                  enableFeedback: enableFeedback,
+                  onPressed: () {},
+                  child: const Text('Link'),
                 );
               },
             ),
@@ -658,30 +213,13 @@ void main() {
 
         await tester.tap(find.text('Link'));
         await tester.pump();
-        expect(
-          platformCalls.where((call) => call.method == 'SystemSound.play'),
-          hasLength(1),
-        );
-        rebuild(() => feedback = false);
-        await tester.pump();
-        await tester.tap(find.text('Link'));
-        await tester.pump();
-        expect(
-          platformCalls.where((call) => call.method == 'SystemSound.play'),
-          hasLength(1),
-        );
+        expect(_systemSoundCalls(platformCalls), hasLength(1));
 
-        rebuild(() {
-          feedback = true;
-          enabled = false;
-        });
+        rebuild(() => enableFeedback = false);
         await tester.pump();
         await tester.tap(find.text('Link'));
         await tester.pump();
-        expect(
-          platformCalls.where((call) => call.method == 'SystemSound.play'),
-          hasLength(1),
-        );
+        expect(_systemSoundCalls(platformCalls), hasLength(1));
       } finally {
         messenger.setMockMethodCallHandler(SystemChannels.platform, null);
         debugDefaultTargetPlatformOverride = oldPlatform;
@@ -690,7 +228,7 @@ void main() {
   });
 
   group('NakedLink interaction state and lifecycle', () {
-    testWidgets('hover and focus transitions update callbacks and scope', (
+    testWidgets('hover and focus update callbacks and builder state', (
       tester,
     ) async {
       const linkKey = ValueKey('link');
@@ -705,13 +243,11 @@ void main() {
           NakedLink(
             key: linkKey,
             focusNode: focusNode,
-            linkUrl: _destination,
-            onActivated: (_) {},
+            onPressed: () {},
             onHoverChange: hoverChanges.add,
             onFocusChange: focusChanges.add,
             builder: (context, value, child) {
-              state = NakedLinkState.of(context);
-              expect(state, same(value));
+              state = value;
               return const SizedBox(
                 width: 160,
                 height: 48,
@@ -733,34 +269,32 @@ void main() {
       focusNode.requestFocus();
       await tester.pump();
       await tester.pump();
-      expect(focusNode.hasFocus, isTrue);
-      expect(focusChanges, [true]);
       expect(state!.isFocused, isTrue);
+      expect(focusChanges, [true]);
 
       await mouse.moveTo(const Offset(-100, -100));
-      await tester.pump();
-      expect(state!.isHovered, isFalse);
-      expect(hoverChanges, [true, false]);
-
       focusNode.unfocus();
       await tester.pump();
       await tester.pump();
+      expect(state!.isHovered, isFalse);
       expect(state!.isFocused, isFalse);
+      expect(hoverChanges, [true, false]);
       expect(focusChanges, [true, false]);
     });
 
-    testWidgets('effective disabled state controls traversal and cursor', (
+    testWidgets('effective disabled state blocks traversal and activation', (
       tester,
     ) async {
+      const explicitKey = ValueKey('explicit-disabled');
+      const callbackKey = ValueKey('callback-disabled');
       const enabledKey = ValueKey('enabled');
-      const explicitDisabledKey = ValueKey('explicit-disabled');
-      const customKey = ValueKey('custom');
-      final enabledNode = FocusNode(debugLabel: 'enabled link');
-      final explicitDisabledNode = FocusNode(debugLabel: 'explicit disabled');
-      final nextNode = FocusNode(debugLabel: 'next');
+      final explicitNode = FocusNode(debugLabel: 'explicit disabled');
+      final callbackNode = FocusNode(debugLabel: 'callback disabled');
+      final enabledNode = FocusNode(debugLabel: 'enabled');
+      addTearDown(explicitNode.dispose);
+      addTearDown(callbackNode.dispose);
       addTearDown(enabledNode.dispose);
-      addTearDown(explicitDisabledNode.dispose);
-      addTearDown(nextNode.dispose);
+      var callbackCount = 0;
 
       await tester.pumpWidget(
         _testApp(
@@ -768,31 +302,22 @@ void main() {
             mainAxisSize: MainAxisSize.min,
             children: [
               NakedLink(
-                key: explicitDisabledKey,
+                key: explicitKey,
                 enabled: false,
-                focusNode: explicitDisabledNode,
-                linkUrl: _destination,
-                onActivated: (_) {},
-                child: const SizedBox(child: Text('Explicit disabled')),
+                focusNode: explicitNode,
+                onPressed: () => callbackCount++,
+                child: const Text('Explicit disabled'),
+              ),
+              NakedLink(
+                key: callbackKey,
+                focusNode: callbackNode,
+                child: const Text('Callback disabled'),
               ),
               NakedLink(
                 key: enabledKey,
                 focusNode: enabledNode,
-                linkUrl: _destination,
-                onActivated: (_) {},
-                child: const SizedBox(child: Text('Enabled')),
-              ),
-              NakedLink(
-                key: customKey,
-                mouseCursor: SystemMouseCursors.help,
-                linkUrl: _destination,
-                onActivated: (_) {},
-                child: const SizedBox(child: Text('Custom')),
-              ),
-              TextButton(
-                focusNode: nextNode,
-                onPressed: () {},
-                child: const Text('Next'),
+                onPressed: () => callbackCount++,
+                child: const Text('Enabled'),
               ),
             ],
           ),
@@ -802,51 +327,28 @@ void main() {
       await tester.sendKeyEvent(LogicalKeyboardKey.tab);
       await tester.pump();
       expect(enabledNode.hasFocus, isTrue);
-      expect(explicitDisabledNode.hasFocus, isFalse);
+      expect(explicitNode.hasFocus, isFalse);
+      expect(callbackNode.hasFocus, isFalse);
 
-      tester.expectCursor(SystemMouseCursors.click, on: enabledKey);
-      tester.expectCursor(SystemMouseCursors.basic, on: explicitDisabledKey);
-      tester.expectCursor(SystemMouseCursors.help, on: customKey);
-    });
-
-    testWidgets('disabled Link rejects focus in directional navigation', (
-      tester,
-    ) async {
-      final focusNode = FocusNode(debugLabel: 'directional disabled Link');
-      addTearDown(focusNode.dispose);
-
-      await tester.pumpWidget(
-        MaterialApp(
-          home: MediaQuery(
-            data: const MediaQueryData(
-              navigationMode: NavigationMode.directional,
-            ),
-            child: NakedLink(
-              enabled: false,
-              focusNode: focusNode,
-              linkUrl: _destination,
-              onActivated: (_) {},
-              child: const Text('Unavailable Link'),
-            ),
-          ),
-        ),
-      );
-
-      focusNode.requestFocus();
+      await tester.tap(find.text('Explicit disabled'));
+      await tester.tap(find.text('Callback disabled'));
       await tester.pump();
-
-      expect(focusNode.hasFocus, isFalse);
+      expect(callbackCount, 0);
+      tester.expectCursor(SystemMouseCursors.basic, on: explicitKey);
+      tester.expectCursor(SystemMouseCursors.basic, on: callbackKey);
+      tester.expectCursor(SystemMouseCursors.click, on: enabledKey);
     });
 
-    testWidgets('disabling retains the destination and clears hover', (
+    testWidgets('callback removal disables and clears interaction state', (
       tester,
     ) async {
       const linkKey = ValueKey('link');
       final focusNode = FocusNode(debugLabel: 'dynamic link');
       addTearDown(focusNode.dispose);
       final hoverChanges = <bool>[];
-      var callbackCount = 0;
-      var enabled = true;
+      final focusChanges = <bool>[];
+      final pressChanges = <bool>[];
+      VoidCallback? callback = () {};
       NakedLinkState? state;
       late StateSetter rebuild;
 
@@ -858,10 +360,10 @@ void main() {
               return NakedLink(
                 key: linkKey,
                 focusNode: focusNode,
-                enabled: enabled,
-                linkUrl: _destination,
-                onActivated: (_) => callbackCount++,
+                onPressed: callback,
                 onHoverChange: hoverChanges.add,
+                onFocusChange: focusChanges.add,
+                onPressChange: pressChanges.add,
                 builder: (context, value, child) {
                   state = value;
                   return const SizedBox(
@@ -880,77 +382,40 @@ void main() {
       await mouse.addPointer(location: Offset.zero);
       addTearDown(mouse.removePointer);
       await mouse.moveTo(tester.getCenter(find.byKey(linkKey)));
-      await tester.pump();
-      expect(state!.isHovered, isTrue);
-
       focusNode.requestFocus();
       await tester.pump();
-      rebuild(() => enabled = false);
+      expect(state!.isHovered, isTrue);
+      expect(state!.isFocused, isTrue);
+
+      final press = await tester.startGesture(
+        tester.getCenter(find.byKey(linkKey)),
+      );
+      await tester.pump();
+      expect(state!.isPressed, isTrue);
+
+      rebuild(() => callback = null);
+      await tester.pump();
       await tester.pump();
 
       expect(state!.isDisabled, isTrue);
-      expect(state!.linkUrl, _destination);
       expect(state!.isHovered, isFalse);
+      expect(state!.isFocused, isFalse);
       expect(state!.isPressed, isFalse);
       expect(hoverChanges, [true, false]);
-      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
-      await tester.tap(find.text('Link'));
-      await tester.pump();
-      expect(callbackCount, 0);
-      tester.expectCursor(SystemMouseCursors.basic, on: linkKey);
-    });
-
-    testWidgets('disabling while hovered permits a parent-setState callback', (
-      tester,
-    ) async {
-      const linkKey = ValueKey('link');
-      var enabled = true;
-      var hovered = false;
-      late StateSetter rebuild;
-
-      await tester.pumpWidget(
-        _testApp(
-          StatefulBuilder(
-            builder: (context, setState) {
-              rebuild = setState;
-              return NakedLink(
-                key: linkKey,
-                enabled: enabled,
-                linkUrl: Uri.parse('https://example.com/docs'),
-                onActivated: (_) {},
-                onHoverChange: (value) => setState(() => hovered = value),
-                child: const SizedBox(
-                  width: 160,
-                  height: 48,
-                  child: Text('Link'),
-                ),
-              );
-            },
-          ),
-        ),
-      );
-
-      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
-      await mouse.addPointer(location: Offset.zero);
-      addTearDown(mouse.removePointer);
-      await mouse.moveTo(tester.getCenter(find.byKey(linkKey)));
-      await tester.pump();
-      expect(hovered, isTrue);
-
-      rebuild(() => enabled = false);
-      await tester.pump();
-      await tester.pump();
-
+      expect(focusChanges, [true, false]);
+      expect(pressChanges, [true, false]);
       expect(tester.takeException(), isNull);
-      expect(hovered, isFalse);
+      await press.cancel();
     });
 
-    testWidgets('disabling while pressed permits a parent-setState callback', (
+    testWidgets('focus node replacement preserves caller ownership', (
       tester,
     ) async {
-      const linkKey = ValueKey('link');
-      var enabled = true;
-      var pressed = false;
+      final firstNode = FocusNode(debugLabel: 'first external link');
+      final secondNode = FocusNode(debugLabel: 'second external link');
+      addTearDown(firstNode.dispose);
+      addTearDown(secondNode.dispose);
+      var currentNode = firstNode;
       late StateSetter rebuild;
 
       await tester.pumpWidget(
@@ -959,219 +424,39 @@ void main() {
             builder: (context, setState) {
               rebuild = setState;
               return NakedLink(
-                key: linkKey,
-                enabled: enabled,
-                linkUrl: Uri.parse('https://example.com/docs'),
-                onActivated: (_) {},
-                onPressChange: (value) => setState(() => pressed = value),
-                child: const SizedBox(
-                  width: 160,
-                  height: 48,
-                  child: Text('Link'),
-                ),
+                autofocus: true,
+                focusNode: currentNode,
+                onPressed: () {},
+                child: const Text('Link'),
               );
             },
           ),
         ),
       );
-
-      final gesture = await tester.startGesture(
-        tester.getCenter(find.byKey(linkKey)),
-        kind: PointerDeviceKind.mouse,
-      );
-      addTearDown(gesture.cancel);
       await tester.pump();
-      expect(pressed, isTrue);
+      expect(firstNode.hasFocus, isTrue);
 
-      rebuild(() => enabled = false);
+      rebuild(() => currentNode = secondNode);
       await tester.pump();
       await tester.pump();
-
-      expect(tester.takeException(), isNull);
-      expect(pressed, isFalse);
-    });
-
-    testWidgets('reenabling under a stationary pointer restores hover', (
-      tester,
-    ) async {
-      const linkKey = ValueKey('link');
-      var enabled = true;
-      final hoverChanges = <bool>[];
-      NakedLinkState? state;
-      late StateSetter rebuild;
-
-      await tester.pumpWidget(
-        _testApp(
-          StatefulBuilder(
-            builder: (context, setState) {
-              rebuild = setState;
-              return NakedLink(
-                key: linkKey,
-                enabled: enabled,
-                linkUrl: Uri.parse('https://example.com/docs'),
-                onActivated: (_) {},
-                onHoverChange: hoverChanges.add,
-                builder: (context, value, child) {
-                  state = value;
-                  return const SizedBox(
-                    width: 160,
-                    height: 48,
-                    child: Text('Link'),
-                  );
-                },
-              );
-            },
-          ),
-        ),
-      );
-
-      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
-      await mouse.addPointer(location: Offset.zero);
-      addTearDown(mouse.removePointer);
-      await mouse.moveTo(tester.getCenter(find.byKey(linkKey)));
-      await tester.pump();
-      expect(state!.isHovered, isTrue);
-
-      rebuild(() => enabled = false);
-      await tester.pump();
-      await tester.pump();
-      expect(state!.isHovered, isFalse);
-
-      rebuild(() => enabled = true);
-      await tester.pump();
-      await tester.pump();
-
-      expect(state!.isHovered, isTrue);
-      expect(hoverChanges, [true, false, true]);
-    });
-
-    testWidgets('availability changes preserve the stateful child subtree', (
-      tester,
-    ) async {
-      var enabled = true;
-      var initCount = 0;
-      var disposeCount = 0;
-      late StateSetter rebuild;
-
-      await tester.pumpWidget(
-        _testApp(
-          StatefulBuilder(
-            builder: (context, setState) {
-              rebuild = setState;
-              return NakedLink(
-                enabled: enabled,
-                linkUrl: _destination,
-                onActivated: (_) {},
-                child: _LifecycleProbe(
-                  onInit: () => initCount++,
-                  onDispose: () => disposeCount++,
-                ),
-              );
-            },
-          ),
-        ),
-      );
-
-      expect(initCount, 1);
-      expect(disposeCount, 0);
-
-      rebuild(() => enabled = false);
-      await tester.pump();
-      rebuild(() => enabled = true);
-      await tester.pump();
-
-      expect(initCount, 1);
-      expect(disposeCount, 0);
+      expect(firstNode.hasFocus, isFalse);
+      expect(secondNode.hasFocus, isTrue);
 
       await tester.pumpWidget(const SizedBox.shrink());
-      expect(disposeCount, 1);
+      final listener = () {};
+      expect(() => firstNode.addListener(listener), returnsNormally);
+      firstNode.removeListener(listener);
+      expect(() => secondNode.addListener(listener), returnsNormally);
+      secondNode.removeListener(listener);
     });
-
-    testWidgets(
-      'autofocus works and focus-node replacement preserves ownership',
-      (tester) async {
-        final firstNode = FocusNode(debugLabel: 'first external link');
-        final secondNode = FocusNode(debugLabel: 'second external link');
-        addTearDown(firstNode.dispose);
-        addTearDown(secondNode.dispose);
-        var currentNode = firstNode;
-        late StateSetter rebuild;
-
-        await tester.pumpWidget(
-          _testApp(
-            StatefulBuilder(
-              builder: (context, setState) {
-                rebuild = setState;
-                return NakedLink(
-                  autofocus: true,
-                  focusNode: currentNode,
-                  linkUrl: _destination,
-                  onActivated: (_) {},
-                  child: const SizedBox(child: Text('Link')),
-                );
-              },
-            ),
-          ),
-        );
-        await tester.pump();
-        expect(firstNode.hasFocus, isTrue);
-
-        rebuild(() => currentNode = secondNode);
-        await tester.pump();
-        await tester.pump();
-        expect(firstNode.hasFocus, isFalse);
-        expect(secondNode.hasFocus, isTrue);
-
-        await tester.pumpWidget(const SizedBox.shrink());
-        final listener = () {};
-        expect(() => firstNode.addListener(listener), returnsNormally);
-        firstNode.removeListener(listener);
-        expect(() => secondNode.addListener(listener), returnsNormally);
-        secondNode.removeListener(listener);
-      },
-    );
   });
 }
 
-Widget _testApp(
-  Widget child, {
-  NakedLinkResolveCallback? resolve,
-  bool includeResolver = true,
-}) {
-  final content = includeResolver
-      ? NakedLinkResolver(
-          resolve: resolve ?? (_, _) => NakedLinkResolution.handled,
-          child: child,
-        )
-      : child;
+Iterable<MethodCall> _systemSoundCalls(Iterable<MethodCall> calls) =>
+    calls.where((call) => call.method == 'SystemSound.play');
+
+Widget _testApp(Widget child) {
   return MaterialApp(
-    home: Scaffold(body: Center(child: content)),
+    home: Scaffold(body: Center(child: child)),
   );
-}
-
-class _LifecycleProbe extends StatefulWidget {
-  const _LifecycleProbe({required this.onInit, required this.onDispose});
-
-  final VoidCallback onInit;
-  final VoidCallback onDispose;
-
-  @override
-  State<_LifecycleProbe> createState() => _LifecycleProbeState();
-}
-
-class _LifecycleProbeState extends State<_LifecycleProbe> {
-  @override
-  void initState() {
-    super.initState();
-    widget.onInit();
-  }
-
-  @override
-  void dispose() {
-    widget.onDispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) => const Text('Stateful child');
 }

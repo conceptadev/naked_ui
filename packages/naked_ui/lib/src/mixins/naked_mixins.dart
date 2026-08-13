@@ -84,11 +84,8 @@ mixin WidgetStatesMixin<T extends StatefulWidget> on State<T> {
   }
 
   /// Change-detecting state update. Returns true if the value actually changed.
-  ///
-  /// Set [rebuild] to false only while synchronizing state during a framework
-  /// lifecycle callback that is already followed by a build.
   @protected
-  bool updateState(WidgetState state, bool value, {bool rebuild = true}) {
+  bool updateState(WidgetState state, bool value) {
     final before = _widgetStates.contains(state);
     if (before == value) return false;
 
@@ -98,7 +95,7 @@ mixin WidgetStatesMixin<T extends StatefulWidget> on State<T> {
       _widgetStates.remove(state);
     }
 
-    if (mounted && rebuild) {
+    if (mounted) {
       // ignore: no-empty-block
       setState(() {}); // Trigger rebuild when widget state changes
     }
@@ -144,8 +141,8 @@ mixin WidgetStatesMixin<T extends StatefulWidget> on State<T> {
 
   /// Update disabled state. Returns true if the state actually changed.
   @protected
-  bool updateDisabledState(bool value, {bool rebuild = true}) {
-    return updateState(WidgetState.disabled, value, rebuild: rebuild);
+  bool updateDisabledState(bool value) {
+    return updateState(WidgetState.disabled, value);
   }
 
   /// Update error state. Returns true if the state actually changed.
