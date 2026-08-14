@@ -1,3 +1,13 @@
+## Unreleased
+
+### Features
+
+- Add dependency-free `NakedLink` with Link semantics, optional destination
+  metadata, caller-owned activation, observable hover/focus/press/disabled
+  state, and caller-owned focus nodes. Primary tap, semantic tap, Enter, and
+  Numpad Enter activate; Space and held-key repeats remain unclaimed. Inert
+  Links expose no Link role, destination, focus stop, or tap action.
+
 ## 1.0.0-beta.10
 
 ### Features

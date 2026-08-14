@@ -2,6 +2,7 @@ export 'naked_accordion.dart';
 export 'naked_button.dart';
 export 'naked_checkbox.dart';
 export 'naked_dialog.dart';
+export 'naked_link.dart';
 export 'naked_menu.dart';
 export 'naked_popover.dart';
 export 'naked_radio.dart';

@@ -17,6 +17,7 @@ The complete documentation covers detailed component APIs and examples, guides a
 ## Supported Components
 
 - NakedButton — button interactions (hover, press, focus)
+- NakedLink — link semantics and Enter-only activation
 - NakedCheckbox — toggle behavior and semantics
 - NakedRadio — single‑select radio with group management
 - NakedSelect — dropdown/select with keyboard navigation
@@ -87,6 +88,35 @@ NakedButton(
       orElse: Colors.blue,
     ),
     child: const Text('Click Me', style: TextStyle(color: Colors.white)),
+  ),
+)
+```
+
+### Custom Link
+
+Use a Link for navigation rather than styling a Button like text. Naked UI owns
+the link interaction contract; the caller owns routing or launching. Enter and
+Numpad Enter activate, while Space remains available to the page. A Link is
+interactive only when `enabled` is true and `onPressed` is non-null.
+
+`linkUrl` is optional semantics metadata. On Flutter web it also becomes an
+anchor `href`, so omit it when `onPressed` performs navigation; otherwise one
+DOM activation can have two navigation owners. Validate destinations before
+passing them to either API. Modified-click policy belongs to the caller or an
+opt-in anchor/launcher layer.
+
+```dart
+NakedLink(
+  onPressed: () => Navigator.of(context).pushNamed('/docs'),
+  child: const Text('Documentation'),
+  builder: (context, state, child) => DecoratedBox(
+    decoration: BoxDecoration(
+      color: state.isHovered ? Colors.blue.shade50 : Colors.transparent,
+      border: Border.all(
+        color: state.isFocused ? Colors.blue : Colors.transparent,
+      ),
+    ),
+    child: child,
   ),
 )
 ```

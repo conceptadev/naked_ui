@@ -12,6 +12,9 @@ class NakedIntentActions {
   /// Intent bindings for button activation.
   static const _ButtonIntentActions button = _ButtonIntentActions();
 
+  /// Intent bindings for Link activation.
+  static const _LinkIntentActions link = _LinkIntentActions();
+
   /// Intent bindings for checkbox activation.
   static const _CheckboxIntentActions checkbox = _CheckboxIntentActions();
 
@@ -46,6 +49,19 @@ class _ButtonIntentActions {
 
   Map<Type, Action<Intent>> actions({required VoidCallback onPressed}) =>
       _activation(onPressed, includeButtonIntent: true);
+}
+
+class _LinkIntentActions {
+  const _LinkIntentActions();
+
+  Map<ShortcutActivator, Intent> get shortcuts => _linkShortcuts;
+
+  Map<Type, Action<Intent>> actions({required VoidCallback onPressed}) =>
+      <Type, Action<Intent>>{
+        _LinkActivateIntent: CallbackAction<_LinkActivateIntent>(
+          onInvoke: (_) => onPressed(),
+        ),
+      };
 }
 
 class _CheckboxIntentActions {
@@ -289,6 +305,14 @@ const Map<ShortcutActivator, Intent> _buttonShortcuts =
       SingleActivator(LogicalKeyboardKey.numpadEnter): ButtonActivateIntent(),
     };
 
+const Map<ShortcutActivator, Intent> _linkShortcuts =
+    <ShortcutActivator, Intent>{
+      SingleActivator(LogicalKeyboardKey.enter, includeRepeats: false):
+          _LinkActivateIntent(),
+      SingleActivator(LogicalKeyboardKey.numpadEnter, includeRepeats: false):
+          _LinkActivateIntent(),
+    };
+
 const Map<ShortcutActivator, Intent> _tabShortcuts =
     <ShortcutActivator, Intent>{
       SingleActivator(LogicalKeyboardKey.enter): ActivateIntent(),
@@ -404,6 +428,11 @@ Map<Type, Action<Intent>> _activation(
 }
 
 // Custom intent definitions for keyboard navigation and slider actions
+
+/// Intent: activate a Link without inheriting Button/Space behavior.
+class _LinkActivateIntent extends Intent {
+  const _LinkActivateIntent();
+}
 
 /// Intent: Move focus to first item in a collection.
 class _FirstFocusIntent extends Intent {

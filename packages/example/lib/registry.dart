@@ -9,6 +9,8 @@ import 'api/naked_button.1.dart' as button_builder_example;
 import 'api/naked_checkbox.0.dart' as checkbox_basic_example;
 // Dialog
 import 'api/naked_dialog.0.dart' as dialog_basic_example;
+// Link
+import 'api/naked_link.0.dart' as link_example;
 // Menu
 import 'api/naked_menu.0.dart' as menu_example;
 // Popover
@@ -175,6 +177,15 @@ class DemoRegistry {
       sourceUrl:
           'https://github.com/btwld/naked_ui/blob/main/example/lib/api/naked_dialog.0.dart',
       tags: ['dialog', 'alert'],
+    ),
+    Demo(
+      id: 'link-basic',
+      title: 'Link – Interaction states',
+      category: 'Link',
+      builder: (_) => const link_example.LinkExample(),
+      sourceUrl:
+          'https://github.com/btwld/naked_ui/blob/main/packages/example/lib/api/naked_link.0.dart',
+      tags: ['link', 'navigation', 'accessibility'],
     ),
     Demo(
       id: 'popover-basic',

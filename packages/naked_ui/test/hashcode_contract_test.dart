@@ -45,6 +45,14 @@ void main() {
 
     final cases = <_ContractCase>[
       _ContractCase(
+        description: 'NakedLinkState',
+        orderedStates: [WidgetState.hovered, WidgetState.focused],
+        create: (states) => NakedLinkState(
+          states: states,
+          linkUrl: Uri.parse('https://example.com/docs'),
+        ),
+      ),
+      _ContractCase(
         description: 'NakedButtonState',
         orderedStates: [WidgetState.hovered, WidgetState.focused],
         create: (states) => NakedButtonState(states: states),

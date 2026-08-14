@@ -7,6 +7,7 @@ import 'components/naked_accordion_integration.dart' as accordion_tests;
 import 'components/naked_button_integration.dart' as button_tests;
 import 'components/naked_checkbox_integration.dart' as checkbox_tests;
 import 'components/naked_dialog_integration.dart' as dialog_tests;
+import 'components/naked_link_integration.dart' as link_tests;
 import 'components/naked_menu_integration.dart' as menu_tests;
 import 'components/naked_popover_integration.dart' as popover_tests;
 import 'components/naked_radio_integration.dart' as radio_tests;
@@ -33,6 +34,7 @@ void main() {
     group('Button Tests', button_tests.main);
     group('Checkbox Tests', checkbox_tests.main);
     group('Dialog Tests', dialog_tests.main);
+    group('Link Tests', link_tests.main);
     group('Menu Tests', menu_tests.main);
     group('Popover Tests', popover_tests.main);
     group('Radio Tests', radio_tests.main);
