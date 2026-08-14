@@ -4,7 +4,7 @@ repository: https://github.com/conceptadev/naked_ui
 documentation: https://docs.page/conceptadev/naked_ui
 issue_tracker: https://github.com/conceptadev/naked_ui/issues
 license: BSD-3-Clause
-version: 1.0.0-beta.10
+version: 1.0.0-beta.11
 resolution: workspace
 
 environment:
