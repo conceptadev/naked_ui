@@ -64,6 +64,7 @@ class NakedButton extends StatefulWidget {
     this.focusOnPress = false,
     this.tooltip,
     this.semanticLabel,
+    this.semanticHint,
     this.excludeSemantics = false,
   });
 
@@ -111,6 +112,13 @@ class NakedButton extends StatefulWidget {
 
   /// Semantic label for the button.
   final String? semanticLabel;
+
+  /// Additional context announced with the button's accessible name.
+  ///
+  /// Lives on the same Semantics node as the button role, label, enabled
+  /// state, and tap/long-press actions. Do not wrap the button in another
+  /// Semantics node just to attach a hint.
+  final String? semanticHint;
 
   /// Whether to exclude this widget from the semantic tree.
   ///
@@ -252,6 +260,7 @@ class _NakedButtonState extends State<NakedButton>
             enabled: _isInteractive,
             button: true,
             label: widget.semanticLabel,
+            hint: widget.semanticHint,
             tooltip: widget.tooltip,
             onTap: widget.onPressed != null ? _handleTap : null,
             onLongPress: widget.onLongPress != null ? _handleLongPress : null,

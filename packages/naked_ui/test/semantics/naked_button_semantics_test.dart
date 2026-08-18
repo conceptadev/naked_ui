@@ -673,5 +673,33 @@ void main() {
       fn.dispose();
       handle.dispose();
     });
+
+    testWidgets('semanticHint lives on the same button node', (tester) async {
+      final handle = tester.ensureSemantics();
+      await tester.pumpWidget(
+        _buildTestApp(
+          NakedButton(
+            onPressed: () {},
+            semanticLabel: 'Save',
+            semanticHint: 'Saves the current document',
+            child: const SizedBox.square(dimension: 24),
+          ),
+        ),
+      );
+
+      final root = tester.getSemantics(find.byType(Scaffold));
+      final buttons = collectSemanticsNodes(
+        root,
+        (node) => node.getSemanticsData().flagsCollection.isButton,
+      );
+      expect(buttons, hasLength(1));
+
+      final data = buttons.single.getSemanticsData();
+      expect(data.label, 'Save');
+      expect(data.hint, 'Saves the current document');
+      expect(data.hasAction(SemanticsAction.tap), isTrue);
+
+      handle.dispose();
+    });
   });
 }

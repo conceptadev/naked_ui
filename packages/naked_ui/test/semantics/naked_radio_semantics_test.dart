@@ -1,3 +1,5 @@
+import 'dart:ui' show Tristate;
+
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 // Material exports widgets; no separate widgets import needed.
@@ -250,6 +252,179 @@ void main() {
       expect(_findRadioNode(tester).getSemanticsData().label, 'Visible A');
 
       handle.dispose();
+    });
+  });
+
+  group('NakedRadioGroup', () {
+    Widget buildGroup({
+      required String? groupValue,
+      ValueChanged<String?>? onChanged,
+      bool enabled = true,
+      String? semanticLabel,
+    }) {
+      return _buildTestApp(
+        NakedRadioGroup<String>(
+          groupValue: groupValue,
+          onChanged: onChanged,
+          enabled: enabled,
+          semanticLabel: semanticLabel,
+          child: const Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              NakedRadio<String>(
+                value: 'a',
+                child: SizedBox.square(dimension: 20),
+              ),
+              NakedRadio<String>(
+                value: 'b',
+                child: SizedBox.square(dimension: 20),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    testWidgets('tap selects through the group onChanged', (tester) async {
+      String? selected = 'a';
+      await tester.pumpWidget(
+        buildGroup(groupValue: selected, onChanged: (v) => selected = v),
+      );
+
+      await tester.tap(find.byType(NakedRadio<String>).last);
+      await tester.pump();
+
+      expect(selected, 'b');
+    });
+
+    testWidgets('null onChanged disables the whole group', (tester) async {
+      final handle = tester.ensureSemantics();
+      await tester.pumpWidget(buildGroup(groupValue: 'a', onChanged: null));
+
+      await tester.tap(
+        find.byType(NakedRadio<String>).last,
+        warnIfMissed: false,
+      );
+      await tester.pump();
+
+      final radios = collectSemanticsNodes(
+        tester.getSemantics(find.byType(Scaffold)),
+        (n) => n.getSemanticsData().flagsCollection.isInMutuallyExclusiveGroup,
+      );
+      expect(radios, hasLength(2));
+      for (final node in radios) {
+        expect(
+          node.getSemanticsData().flagsCollection.isEnabled,
+          Tristate.isFalse,
+        );
+      }
+
+      handle.dispose();
+    });
+
+    testWidgets('enabled: false disables radios that are enabled themselves', (
+      tester,
+    ) async {
+      String? selected = 'a';
+      await tester.pumpWidget(
+        buildGroup(
+          groupValue: selected,
+          onChanged: (v) => selected = v,
+          enabled: false,
+        ),
+      );
+
+      await tester.tap(
+        find.byType(NakedRadio<String>).last,
+        warnIfMissed: false,
+      );
+      await tester.pump();
+
+      expect(selected, 'a');
+    });
+
+    testWidgets('semanticLabel labels the group without a second role node', (
+      tester,
+    ) async {
+      final handle = tester.ensureSemantics();
+      await tester.pumpWidget(
+        buildGroup(
+          groupValue: 'a',
+          onChanged: (_) {},
+          semanticLabel: 'Shipping speed',
+        ),
+      );
+
+      final root = tester.getSemantics(find.byType(Scaffold));
+      // Flutter's RadioGroup publishes the single radioGroup role node.
+      // The label must not add a second one.
+      final roleNodes = collectSemanticsNodes(
+        root,
+        (n) => n.getSemanticsData().role == SemanticsRole.radioGroup,
+      );
+      expect(roleNodes, hasLength(1));
+
+      final labeled = collectSemanticsNodes(
+        root,
+        (n) => n.getSemanticsData().label == 'Shipping speed',
+      );
+      expect(labeled, hasLength(1));
+
+      handle.dispose();
+    });
+
+    testWidgets('without semanticLabel only Flutter\'s role node exists', (
+      tester,
+    ) async {
+      final handle = tester.ensureSemantics();
+      await tester.pumpWidget(buildGroup(groupValue: 'a', onChanged: (_) {}));
+
+      final groups = collectSemanticsNodes(
+        tester.getSemantics(find.byType(Scaffold)),
+        (n) => n.getSemanticsData().role == SemanticsRole.radioGroup,
+      );
+      expect(groups, hasLength(1));
+      expect(groups.single.getSemanticsData().label, isEmpty);
+
+      handle.dispose();
+    });
+
+    testWidgets('nested groups of different types keep enabled state aligned', (
+      tester,
+    ) async {
+      int? selectedInner = 1;
+      await tester.pumpWidget(
+        _buildTestApp(
+          NakedRadioGroup<String>(
+            groupValue: 'a',
+            onChanged: null, // outer group disabled
+            child: NakedRadioGroup<int>(
+              groupValue: selectedInner,
+              onChanged: (v) => selectedInner = v,
+              child: const Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  NakedRadio<int>(
+                    value: 1,
+                    child: SizedBox.square(dimension: 20),
+                  ),
+                  NakedRadio<int>(
+                    value: 2,
+                    child: SizedBox.square(dimension: 20),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+
+      // The int radios belong to the enabled inner group; the disabled
+      // outer String group must not leak its state onto them.
+      await tester.tap(find.byType(NakedRadio<int>).last);
+      await tester.pump();
+
+      expect(selectedInner, 2);
     });
   });
 }
