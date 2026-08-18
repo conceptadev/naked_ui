@@ -432,8 +432,7 @@ void main() {
         root,
         (node) =>
             node.getSemanticsData().flagsCollection.isButton ||
-            node.getSemanticsData().flagsCollection.isExpanded !=
-                Tristate.none,
+            node.getSemanticsData().flagsCollection.isExpanded != Tristate.none,
       );
       expect(triggers, hasLength(1));
       expect(triggers.single.getSemanticsData().value, 'Apple');
