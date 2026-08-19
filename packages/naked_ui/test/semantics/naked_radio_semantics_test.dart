@@ -370,6 +370,24 @@ void main() {
       );
       expect(labeled, hasLength(1));
 
+      // Pin the deliberate structure: the label is a plain container
+      // (no role) with Flutter's role node inside it — not a second
+      // role node and not an unrelated sibling.
+      final labeledNode = labeled.single;
+      expect(
+        labeledNode.getSemanticsData().role,
+        isNot(SemanticsRole.radioGroup),
+      );
+      SemanticsNode? ancestor = roleNodes.single.parent;
+      while (ancestor != null && ancestor != labeledNode) {
+        ancestor = ancestor.parent;
+      }
+      expect(
+        ancestor,
+        same(labeledNode),
+        reason: "Flutter's role node must sit inside the labeled container",
+      );
+
       handle.dispose();
     });
 
@@ -426,5 +444,38 @@ void main() {
 
       expect(selectedInner, 2);
     });
+
+    testWidgets(
+      'radio skips a mismatched-type group to read its own group enabled '
+      'state',
+      (tester) async {
+        int? selectedOuter = 1;
+        await tester.pumpWidget(
+          _buildTestApp(
+            NakedRadioGroup<int>(
+              groupValue: selectedOuter,
+              enabled: false, // the radio's real group is disabled
+              onChanged: (v) => selectedOuter = v,
+              child: NakedRadioGroup<String>(
+                groupValue: 'a',
+                onChanged: (_) {}, // enabled, but the wrong value type
+                child: const NakedRadio<int>(
+                  value: 2,
+                  child: SizedBox.square(dimension: 20),
+                ),
+              ),
+            ),
+          ),
+        );
+
+        // An untyped nearest-scope lookup would read the nearer, enabled
+        // String group and let the tap through; the typed lookup must
+        // bind to the outer, disabled int group instead.
+        await tester.tap(find.byType(NakedRadio<int>), warnIfMissed: false);
+        await tester.pump();
+
+        expect(selectedOuter, 1);
+      },
+    );
   });
 }

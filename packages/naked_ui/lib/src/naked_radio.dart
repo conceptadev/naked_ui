@@ -255,6 +255,11 @@ class _NakedRadioState<T> extends State<NakedRadio<T>>
 /// Owns the Flutter radio registry, group enabled state, the disabled
 /// callback adaptation [RadioGroup] requires, and optional group
 /// semantics. A null [onChanged] is a genuinely disabled group.
+///
+/// Do not nest a plain [RadioGroup] of the same value type inside this
+/// group: its radios would register with the inner registry while still
+/// inheriting this group's enabled state. Nest another [NakedRadioGroup]
+/// instead, which keeps both aligned.
 class NakedRadioGroup<T> extends StatelessWidget {
   /// Creates a radio group.
   const NakedRadioGroup({
