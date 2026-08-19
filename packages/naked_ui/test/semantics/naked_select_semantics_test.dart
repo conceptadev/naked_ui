@@ -409,5 +409,39 @@ void main() {
 
       handle.dispose();
     });
+
+    testWidgets('semanticValue is announced instead of T.toString()', (
+      tester,
+    ) async {
+      final handle = tester.ensureSemantics();
+
+      await tester.pumpWidget(
+        _buildTestApp(
+          NakedSelect<Object>(
+            value: Object(),
+            onChanged: (_) {},
+            semanticValue: 'Apple',
+            builder: (context, state, child) => const Text('Fruit'),
+            overlayBuilder: (context, info) => const SizedBox.shrink(),
+          ),
+        ),
+      );
+
+      final root = tester.getSemantics(find.byType(Scaffold));
+      final triggers = collectSemanticsNodes(
+        root,
+        (node) =>
+            node.getSemanticsData().flagsCollection.isButton ||
+            node.getSemanticsData().flagsCollection.isExpanded != Tristate.none,
+      );
+      expect(triggers, hasLength(1));
+      expect(triggers.single.getSemanticsData().value, 'Apple');
+      expect(
+        triggers.single.getSemanticsData().value,
+        isNot(contains('Instance of')),
+      );
+
+      handle.dispose();
+    });
   });
 }

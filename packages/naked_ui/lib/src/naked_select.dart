@@ -236,6 +236,7 @@ class NakedSelect<T> extends StatefulWidget {
     this.mouseCursor = SystemMouseCursors.click,
     this.triggerFocusNode,
     this.semanticLabel,
+    this.semanticValue,
     this.positioning = const OverlayPositionConfig(
       alignment: OverlayAlignment.center,
     ),
@@ -295,6 +296,11 @@ class NakedSelect<T> extends StatefulWidget {
 
   /// Optional semantics label for the trigger.
   final String? semanticLabel;
+
+  /// Human-readable value announced for the current selection.
+  ///
+  /// When null, the trigger falls back to [value]?.toString().
+  final String? semanticValue;
 
   /// Overlay positioning configuration.
   final OverlayPositionConfig positioning;
@@ -439,7 +445,7 @@ class _NakedSelectState<T> extends State<NakedSelect<T>>
   @override
   Widget build(BuildContext context) {
     _scheduleControlledSync();
-    final semanticsValue = _effectiveValue?.toString();
+    final semanticsValue = widget.semanticValue ?? _effectiveValue?.toString();
 
     Widget selectWidget = AnchoredOverlayShell(
       controller: _menuController,
@@ -504,6 +510,10 @@ class _NakedSelectState<T> extends State<NakedSelect<T>>
 
     Widget result = widget.excludeSemantics
         ? ExcludeSemantics(child: selectWidget)
+        // Flutter >=3.41 exposes SemanticsRole.comboBox, but debug semantics
+        // still throw "Missing checks for role SemanticsRole.comboBox"
+        // (flutter/flutter#172918). The supported trigger contract on this
+        // floor is the merged button + expanded + value node.
         : MergeSemantics(
             child: Semantics(
               container: true,

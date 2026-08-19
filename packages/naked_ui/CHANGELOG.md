@@ -1,3 +1,20 @@
+## Unreleased
+
+### Features
+
+- Add `NakedButton.semanticHint` on the same Semantics node as the button
+  role, label, enabled state, and tap/long-press actions.
+- Add `NakedSelect.semanticValue` so the trigger can announce a
+  human-readable selection instead of `T.toString()`.
+  `SemanticsRole.comboBox` exists on Flutter 3.41+ but debug semantics
+  still throw `Missing checks for role` (flutter/flutter#172918), so the
+  trigger keeps the merged button + expanded + value contract.
+- Add `NakedRadioGroup`, a thin wrapper over Flutter's `RadioGroup` that
+  supplies what it lacks: a nullable `onChanged` (null means disabled), a
+  group `enabled` state radios inherit, and an optional accessible group
+  label. Flutter's `RadioGroup` keeps the single `SemanticsRole.radioGroup`
+  node; the label is a plain container around it, never a second role node.
+
 ## 1.0.0-beta.11
 
 ### Features

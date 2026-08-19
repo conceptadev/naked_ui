@@ -5,7 +5,7 @@ export 'naked_dialog.dart';
 export 'naked_link.dart';
 export 'naked_menu.dart';
 export 'naked_popover.dart';
-export 'naked_radio.dart';
+export 'naked_radio.dart' hide NakedRadioGroupScope;
 export 'naked_select.dart';
 export 'naked_slider.dart';
 export 'naked_tabs.dart';
