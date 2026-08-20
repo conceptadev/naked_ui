@@ -58,6 +58,12 @@ void main() {
         create: (states) => NakedButtonState(states: states),
       ),
       _ContractCase(
+        description: 'NakedDisclosureState',
+        orderedStates: [WidgetState.selected, WidgetState.focused],
+        create: (states) =>
+            NakedDisclosureState(states: states, isExpanded: true),
+      ),
+      _ContractCase(
         description: 'NakedPopoverState',
         orderedStates: [WidgetState.hovered, WidgetState.pressed],
         create: (states) => NakedPopoverState(states: states, isOpen: true),
@@ -184,6 +190,13 @@ void main() {
       // Different content = not equal
       expect(state1 == state2, isFalse);
       // hashCodes MAY differ (but don't have to - collisions are allowed)
+    });
+
+    test('NakedDisclosureState expansion participates in equality', () {
+      final collapsed = NakedDisclosureState(states: {}, isExpanded: false);
+      final expanded = NakedDisclosureState(states: {}, isExpanded: true);
+
+      expect(collapsed, isNot(expanded));
     });
   });
 }
