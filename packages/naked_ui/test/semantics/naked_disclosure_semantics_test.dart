@@ -83,19 +83,28 @@ void main() {
       await tester.tap(find.text('Trigger'));
       await tester.pump();
 
+      expect(
+        tester
+            .getSemantics(find.text('Trigger'))
+            .getSemanticsData()
+            .controlsNodes,
+        isNull,
+      );
+      await tester.pump();
+
       final reopenedTrigger = tester.getSemantics(find.text('Trigger'));
       final reopenedPanelIdentifier = _controlledIdentifier(reopenedTrigger);
       final reopenedPanel = _nodeWithIdentifier(
         tester.getSemantics(find.byType(Scaffold)),
         reopenedPanelIdentifier,
       );
-      expect(reopenedPanelIdentifier, isNot(initialPanelIdentifier));
+      expect(reopenedPanelIdentifier, initialPanelIdentifier);
       expect(reopenedPanel.id, isNot(reopenedTrigger.id));
       expect(_subtreeContainsLabel(reopenedPanel, 'Panel'), isTrue);
       handle.dispose();
     });
 
-    testWidgets('refreshes the controlled panel target when remounted', (
+    testWidgets('defers a controlled relationship until its target remounts', (
       tester,
     ) async {
       final handle = tester.ensureSemantics();
@@ -133,11 +142,19 @@ void main() {
 
       rebuild(() => expanded = true);
       await tester.pump();
+      expect(
+        tester
+            .getSemantics(find.text('Controlled trigger'))
+            .getSemanticsData()
+            .controlsNodes,
+        isNull,
+      );
+      await tester.pump();
       final reopenedIdentifier = _controlledIdentifier(
         tester.getSemantics(find.text('Controlled trigger')),
       );
 
-      expect(reopenedIdentifier, isNot(initialIdentifier));
+      expect(reopenedIdentifier, initialIdentifier);
       expect(
         _subtreeContainsLabel(
           _nodeWithIdentifier(

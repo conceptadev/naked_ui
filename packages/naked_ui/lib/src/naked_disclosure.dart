@@ -181,7 +181,8 @@ class _NakedDisclosureState extends State<NakedDisclosure>
   static int _nextPanelSemanticsIdentifier = 0;
 
   Timer? _keyboardPressTimer;
-  late String _panelSemanticsIdentifier = _newPanelSemanticsIdentifier();
+  late final String _panelSemanticsIdentifier =
+      'naked-disclosure-panel-${_nextPanelSemanticsIdentifier++}';
   final FocusNode _panelFocusNode = FocusNode(
     debugLabel: 'NakedDisclosure panel',
   );
@@ -189,6 +190,7 @@ class _NakedDisclosureState extends State<NakedDisclosure>
   late CurvedAnimation _animation;
   late bool _uncontrolledExpanded;
   late bool _panelMounted;
+  late bool _panelSemanticsReady;
   bool _animationsDisabled = false;
   int _transitionGeneration = 0;
 
@@ -203,11 +205,6 @@ class _NakedDisclosureState extends State<NakedDisclosure>
       widget.transitionBuilder != null &&
       widget.animationStyle != AnimationStyle.noAnimation &&
       !_animationsDisabled;
-
-  // A remounted panel gets a new semantics node. Refreshing the identifier
-  // forces platforms to resolve controlsNodes to that new node.
-  static String _newPanelSemanticsIdentifier() =>
-      'naked-disclosure-panel-${_nextPanelSemanticsIdentifier++}';
 
   Duration get _forwardDuration =>
       widget.animationStyle.duration ?? const Duration(milliseconds: 200);
@@ -235,6 +232,7 @@ class _NakedDisclosureState extends State<NakedDisclosure>
     // WidgetStatesMixin initializes state from _isExpanded in super.initState.
     _uncontrolledExpanded = widget.defaultExpanded;
     _panelMounted = _isExpanded;
+    _panelSemanticsReady = _isExpanded;
     super.initState();
     _animationController = AnimationController(
       value: _isExpanded ? 1 : 0,
@@ -291,8 +289,9 @@ class _NakedDisclosureState extends State<NakedDisclosure>
     }
 
     updateSelectedState(_isExpanded, null);
-    if (oldExpanded != _isExpanded && _isExpanded) {
-      _panelSemanticsIdentifier = _newPanelSemanticsIdentifier();
+    if (oldExpanded != _isExpanded) {
+      _panelSemanticsReady = false;
+      if (_isExpanded) _schedulePanelSemanticsRelationship();
     }
     if (oldExpanded != _isExpanded ||
         oldWidget.transitionBuilder != widget.transitionBuilder ||
@@ -312,14 +311,22 @@ class _NakedDisclosureState extends State<NakedDisclosure>
 
     if (!_isControlled) {
       _uncontrolledExpanded = nextExpanded;
-      if (nextExpanded) {
-        _panelSemanticsIdentifier = _newPanelSemanticsIdentifier();
-      }
+      _panelSemanticsReady = false;
+      if (nextExpanded) _schedulePanelSemanticsRelationship();
       updateSelectedState(nextExpanded, null);
       _applyExpansion();
     }
 
     widget.onExpandedChanged?.call(nextExpanded);
+  }
+
+  void _schedulePanelSemanticsRelationship() {
+    // Flutter web resolves controlsNodes to a DOM node ID when the semantics
+    // update arrives, so wait until the remounted panel has registered itself.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_isExpanded || _panelSemanticsReady) return;
+      setState(() => _panelSemanticsReady = true);
+    });
   }
 
   void _handleTap() {
@@ -453,7 +460,9 @@ class _NakedDisclosureState extends State<NakedDisclosure>
             enabled: _isInteractive,
             button: true,
             expanded: _isExpanded,
-            controlsNodes: _isExpanded ? {_panelSemanticsIdentifier} : null,
+            controlsNodes: _isExpanded && _panelSemanticsReady
+                ? {_panelSemanticsIdentifier}
+                : null,
             label: hasReplacementLabel ? semanticLabel : null,
             hint: widget.semanticHint,
             excludeSemantics: hasReplacementLabel,
