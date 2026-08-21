@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/widgets.dart';
 
 import 'mixins/naked_mixins.dart';
@@ -178,7 +179,11 @@ class _NakedDisclosureState extends State<NakedDisclosure>
         WidgetStatesMixin<NakedDisclosure>,
         FocusNodeMixin<NakedDisclosure>,
         SingleTickerProviderStateMixin<NakedDisclosure> {
+  static int _nextPanelSemanticsIdentifier = 0;
+
   Timer? _keyboardPressTimer;
+  late String _panelSemanticsIdentifier = _newPanelSemanticsIdentifier();
+  final GlobalKey? _webTriggerSubtreeKey = kIsWeb ? GlobalKey() : null;
   final FocusNode _panelFocusNode = FocusNode(
     debugLabel: 'NakedDisclosure panel',
   );
@@ -186,6 +191,8 @@ class _NakedDisclosureState extends State<NakedDisclosure>
   late CurvedAnimation _animation;
   late bool _uncontrolledExpanded;
   late bool _panelMounted;
+  late bool _panelSemanticsReady;
+  int _webTriggerSemanticsGeneration = 0;
   bool _animationsDisabled = false;
   int _transitionGeneration = 0;
 
@@ -200,6 +207,9 @@ class _NakedDisclosureState extends State<NakedDisclosure>
       widget.transitionBuilder != null &&
       widget.animationStyle != AnimationStyle.noAnimation &&
       !_animationsDisabled;
+
+  static String _newPanelSemanticsIdentifier() =>
+      'naked-disclosure-panel-${_nextPanelSemanticsIdentifier++}';
 
   Duration get _forwardDuration =>
       widget.animationStyle.duration ?? const Duration(milliseconds: 200);
@@ -227,6 +237,7 @@ class _NakedDisclosureState extends State<NakedDisclosure>
     // WidgetStatesMixin initializes state from _isExpanded in super.initState.
     _uncontrolledExpanded = widget.defaultExpanded;
     _panelMounted = _isExpanded;
+    _panelSemanticsReady = _isExpanded;
     super.initState();
     _animationController = AnimationController(
       value: _isExpanded ? 1 : 0,
@@ -283,6 +294,9 @@ class _NakedDisclosureState extends State<NakedDisclosure>
     }
 
     updateSelectedState(_isExpanded, null);
+    if (oldExpanded != _isExpanded) {
+      _refreshPanelSemanticsRelationship();
+    }
     if (oldExpanded != _isExpanded ||
         oldWidget.transitionBuilder != widget.transitionBuilder ||
         oldWidget.animationStyle != widget.animationStyle) {
@@ -301,11 +315,38 @@ class _NakedDisclosureState extends State<NakedDisclosure>
 
     if (!_isControlled) {
       _uncontrolledExpanded = nextExpanded;
+      _refreshPanelSemanticsRelationship();
       updateSelectedState(nextExpanded, null);
       _applyExpansion();
     }
 
     widget.onExpandedChanged?.call(nextExpanded);
+  }
+
+  void _refreshPanelSemanticsRelationship() {
+    if (!kIsWeb) {
+      _panelSemanticsReady = _isExpanded;
+      return;
+    }
+
+    _panelSemanticsReady = false;
+    if (!_isExpanded) return;
+    _panelSemanticsIdentifier = _newPanelSemanticsIdentifier();
+    _scheduleWebPanelSemanticsRelationship();
+  }
+
+  void _scheduleWebPanelSemanticsRelationship() {
+    // Flutter web resolves controlsNodes to a DOM node ID when the semantics
+    // update arrives, so wait until the remounted panel has registered itself.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_isExpanded || _panelSemanticsReady) return;
+      setState(() {
+        // Recreate the trigger semantics boundary because Flutter web does
+        // not re-resolve controlsNodes there after its target remounts.
+        _webTriggerSemanticsGeneration += 1;
+        _panelSemanticsReady = true;
+      });
+    });
   }
 
   void _handleTap() {
@@ -365,12 +406,17 @@ class _NakedDisclosureState extends State<NakedDisclosure>
 
   Widget _buildPanel(BuildContext context) {
     final panelHidden = !_isExpanded;
-    final panel = Focus(
-      focusNode: _panelFocusNode,
-      canRequestFocus: false,
-      skipTraversal: true,
-      includeSemantics: false,
-      child: widget.panel,
+    final panel = Semantics(
+      container: true,
+      explicitChildNodes: true,
+      identifier: _panelSemanticsIdentifier,
+      child: Focus(
+        focusNode: _panelFocusNode,
+        canRequestFocus: false,
+        skipTraversal: true,
+        includeSemantics: false,
+        child: widget.panel,
+      ),
     );
     final transitionBuilder = widget.transitionBuilder;
     final transitionedPanel = transitionBuilder == null
@@ -430,18 +476,8 @@ class _NakedDisclosureState extends State<NakedDisclosure>
             child: trigger,
           );
 
-          final semanticTrigger = Semantics(
-            enabled: _isInteractive,
-            button: true,
-            expanded: _isExpanded,
-            label: hasReplacementLabel ? semanticLabel : null,
-            hint: widget.semanticHint,
-            excludeSemantics: hasReplacementLabel,
-            onTap: _isInteractive ? _handleTap : null,
-            child: triggerContent,
-          );
-
           final focusableTrigger = NakedFocusableDetector(
+            key: _webTriggerSubtreeKey,
             enabled: _isInteractive,
             autofocus: widget.autofocus,
             onFocusChange: (focused) =>
@@ -456,10 +492,26 @@ class _NakedDisclosureState extends State<NakedDisclosure>
             actions: NakedIntentActions.button.actions(
               onPressed: _handleKeyboardActivation,
             ),
-            child: semanticTrigger,
+            child: triggerContent,
           );
 
-          final children = <Widget>[focusableTrigger];
+          final semanticTrigger = Semantics(
+            key: kIsWeb ? ValueKey(_webTriggerSemanticsGeneration) : null,
+            container: true,
+            enabled: _isInteractive,
+            button: true,
+            expanded: _isExpanded,
+            controlsNodes: _isExpanded && _panelSemanticsReady
+                ? {_panelSemanticsIdentifier}
+                : null,
+            label: hasReplacementLabel ? semanticLabel : null,
+            hint: widget.semanticHint,
+            excludeSemantics: hasReplacementLabel,
+            onTap: _isInteractive ? _handleTap : null,
+            child: focusableTrigger,
+          );
+
+          final children = <Widget>[semanticTrigger];
           if (_panelMounted) children.add(_buildPanel(context));
           final assembledItem = Column(
             mainAxisSize: MainAxisSize.min,

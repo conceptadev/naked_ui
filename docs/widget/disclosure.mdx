@@ -123,6 +123,10 @@ reopened panel.
 
 - The trigger is the only button and the only disclosure tap target.
 - Visible trigger text supplies the accessible name by default.
+- While expanded, the trigger identifies a distinct panel semantics container it
+  controls. Flutter web maps this relationship to `aria-controls`.
+- The relationship is removed while collapsed because the panel is absent from
+  the semantics tree.
 - A non-empty `semanticLabel` replaces trigger-descendant semantics; use
   `semanticHint` for short additional context.
 - `excludeSemantics: true` hides both the trigger and panel.
