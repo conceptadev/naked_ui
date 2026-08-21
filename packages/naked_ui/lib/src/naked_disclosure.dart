@@ -370,6 +370,8 @@ class _NakedDisclosureState extends State<NakedDisclosure>
   Widget _buildPanel(BuildContext context) {
     final panelHidden = !_isExpanded;
     final panel = Semantics(
+      container: true,
+      explicitChildNodes: true,
       identifier: _panelSemanticsIdentifier,
       child: Focus(
         focusNode: _panelFocusNode,
