@@ -25,6 +25,7 @@ The complete documentation covers detailed component APIs and examples, guides a
 - NakedToggle — toggle button or switch behavior
 - NakedTabs — tablist + roving focus
 - NakedAccordion — expandable/collapsible sections
+- NakedDisclosure — standalone show/hide button and panel
 - NakedMenu — anchored menu with checkbox/radio items + recursive submenus
 - NakedDialog — normal and alert dialog semantics + modal focus trap
 - NakedTooltip — controlled, hoverable, collision-aware tooltip

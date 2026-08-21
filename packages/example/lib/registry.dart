@@ -9,6 +9,8 @@ import 'api/naked_button.1.dart' as button_builder_example;
 import 'api/naked_checkbox.0.dart' as checkbox_basic_example;
 // Dialog
 import 'api/naked_dialog.0.dart' as dialog_basic_example;
+// Disclosure
+import 'api/naked_disclosure.0.dart' as disclosure_example;
 // Link
 import 'api/naked_link.0.dart' as link_example;
 // Menu
@@ -177,6 +179,15 @@ class DemoRegistry {
       sourceUrl:
           'https://github.com/btwld/naked_ui/blob/main/example/lib/api/naked_dialog.0.dart',
       tags: ['dialog', 'alert'],
+    ),
+    Demo(
+      id: 'disclosure-basic',
+      title: 'Disclosure – Controlled and uncontrolled',
+      category: 'Disclosure',
+      builder: (_) => const disclosure_example.DisclosureExample(),
+      sourceUrl:
+          'https://github.com/btwld/naked_ui/blob/main/packages/example/lib/api/naked_disclosure.0.dart',
+      tags: ['disclosure', 'expansion', 'accessibility'],
     ),
     Demo(
       id: 'link-basic',

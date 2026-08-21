@@ -66,6 +66,10 @@
           "href": "/widget/dialog"
         },
         {
+          "title": "NakedDisclosure",
+          "href": "/widget/disclosure"
+        },
+        {
           "title": "NakedLink",
           "href": "/widget/link"
         },
