@@ -181,8 +181,7 @@ class _NakedDisclosureState extends State<NakedDisclosure>
   static int _nextPanelSemanticsIdentifier = 0;
 
   Timer? _keyboardPressTimer;
-  late final String _panelSemanticsIdentifier =
-      'naked-disclosure-panel-${_nextPanelSemanticsIdentifier++}';
+  late String _panelSemanticsIdentifier = _newPanelSemanticsIdentifier();
   final FocusNode _panelFocusNode = FocusNode(
     debugLabel: 'NakedDisclosure panel',
   );
@@ -204,6 +203,11 @@ class _NakedDisclosureState extends State<NakedDisclosure>
       widget.transitionBuilder != null &&
       widget.animationStyle != AnimationStyle.noAnimation &&
       !_animationsDisabled;
+
+  // A remounted panel gets a new semantics node. Refreshing the identifier
+  // forces platforms to resolve controlsNodes to that new node.
+  static String _newPanelSemanticsIdentifier() =>
+      'naked-disclosure-panel-${_nextPanelSemanticsIdentifier++}';
 
   Duration get _forwardDuration =>
       widget.animationStyle.duration ?? const Duration(milliseconds: 200);
@@ -287,6 +291,9 @@ class _NakedDisclosureState extends State<NakedDisclosure>
     }
 
     updateSelectedState(_isExpanded, null);
+    if (oldExpanded != _isExpanded && _isExpanded) {
+      _panelSemanticsIdentifier = _newPanelSemanticsIdentifier();
+    }
     if (oldExpanded != _isExpanded ||
         oldWidget.transitionBuilder != widget.transitionBuilder ||
         oldWidget.animationStyle != widget.animationStyle) {
@@ -305,6 +312,9 @@ class _NakedDisclosureState extends State<NakedDisclosure>
 
     if (!_isControlled) {
       _uncontrolledExpanded = nextExpanded;
+      if (nextExpanded) {
+        _panelSemanticsIdentifier = _newPanelSemanticsIdentifier();
+      }
       updateSelectedState(nextExpanded, null);
       _applyExpansion();
     }

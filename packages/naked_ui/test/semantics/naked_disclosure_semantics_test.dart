@@ -89,9 +89,65 @@ void main() {
         tester.getSemantics(find.byType(Scaffold)),
         reopenedPanelIdentifier,
       );
-      expect(reopenedPanelIdentifier, initialPanelIdentifier);
+      expect(reopenedPanelIdentifier, isNot(initialPanelIdentifier));
       expect(reopenedPanel.id, isNot(reopenedTrigger.id));
       expect(_subtreeContainsLabel(reopenedPanel, 'Panel'), isTrue);
+      handle.dispose();
+    });
+
+    testWidgets('refreshes the controlled panel target when remounted', (
+      tester,
+    ) async {
+      final handle = tester.ensureSemantics();
+      var expanded = true;
+      late StateSetter rebuild;
+      await tester.pumpWidget(
+        buildApp(
+          StatefulBuilder(
+            builder: (context, setState) {
+              rebuild = setState;
+              return NakedDisclosure(
+                expanded: expanded,
+                onExpandedChanged: (_) {},
+                child: const Text('Controlled trigger'),
+                panel: const Text('Controlled panel'),
+              );
+            },
+          ),
+        ),
+      );
+
+      final initialIdentifier = _controlledIdentifier(
+        tester.getSemantics(find.text('Controlled trigger')),
+      );
+
+      rebuild(() => expanded = false);
+      await tester.pump();
+      expect(
+        tester
+            .getSemantics(find.text('Controlled trigger'))
+            .getSemanticsData()
+            .controlsNodes,
+        isNull,
+      );
+
+      rebuild(() => expanded = true);
+      await tester.pump();
+      final reopenedIdentifier = _controlledIdentifier(
+        tester.getSemantics(find.text('Controlled trigger')),
+      );
+
+      expect(reopenedIdentifier, isNot(initialIdentifier));
+      expect(
+        _subtreeContainsLabel(
+          _nodeWithIdentifier(
+            tester.getSemantics(find.byType(Scaffold)),
+            reopenedIdentifier,
+          ),
+          'Controlled panel',
+        ),
+        isTrue,
+      );
       handle.dispose();
     });
 
