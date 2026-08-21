@@ -1,3 +1,12 @@
+## 1.0.0-beta.13
+
+### Features
+
+- Add `NakedDisclosure`, a standalone headless button-and-panel primitive with
+  controlled and uncontrolled state, accessible expanded semantics, shared
+  widget state, normal panel focus traversal, and optional exit-aware
+  transitions that preserve panel state while closing.
+
 ## 1.0.0-beta.12
 
 ### Features
