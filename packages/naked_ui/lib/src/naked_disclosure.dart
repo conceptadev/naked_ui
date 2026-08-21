@@ -178,7 +178,11 @@ class _NakedDisclosureState extends State<NakedDisclosure>
         WidgetStatesMixin<NakedDisclosure>,
         FocusNodeMixin<NakedDisclosure>,
         SingleTickerProviderStateMixin<NakedDisclosure> {
+  static int _nextPanelSemanticsIdentifier = 0;
+
   Timer? _keyboardPressTimer;
+  late final String _panelSemanticsIdentifier =
+      'naked-disclosure-panel-${_nextPanelSemanticsIdentifier++}';
   final FocusNode _panelFocusNode = FocusNode(
     debugLabel: 'NakedDisclosure panel',
   );
@@ -365,12 +369,15 @@ class _NakedDisclosureState extends State<NakedDisclosure>
 
   Widget _buildPanel(BuildContext context) {
     final panelHidden = !_isExpanded;
-    final panel = Focus(
-      focusNode: _panelFocusNode,
-      canRequestFocus: false,
-      skipTraversal: true,
-      includeSemantics: false,
-      child: widget.panel,
+    final panel = Semantics(
+      identifier: _panelSemanticsIdentifier,
+      child: Focus(
+        focusNode: _panelFocusNode,
+        canRequestFocus: false,
+        skipTraversal: true,
+        includeSemantics: false,
+        child: widget.panel,
+      ),
     );
     final transitionBuilder = widget.transitionBuilder;
     final transitionedPanel = transitionBuilder == null
@@ -434,6 +441,7 @@ class _NakedDisclosureState extends State<NakedDisclosure>
             enabled: _isInteractive,
             button: true,
             expanded: _isExpanded,
+            controlsNodes: _isExpanded ? {_panelSemanticsIdentifier} : null,
             label: hasReplacementLabel ? semanticLabel : null,
             hint: widget.semanticHint,
             excludeSemantics: hasReplacementLabel,

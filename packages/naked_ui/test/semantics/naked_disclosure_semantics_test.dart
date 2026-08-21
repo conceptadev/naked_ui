@@ -18,6 +18,109 @@ void main() {
   );
 
   group('NakedDisclosure semantics', () {
+    testWidgets('controls its panel only while expanded', (tester) async {
+      final handle = tester.ensureSemantics();
+      await tester.pumpWidget(
+        buildApp(
+          const NakedDisclosure(
+            defaultExpanded: true,
+            child: Text('Trigger'),
+            panel: Text('Panel'),
+          ),
+        ),
+      );
+
+      final expandedTrigger = tester
+          .getSemantics(find.text('Trigger'))
+          .getSemanticsData();
+      final initialPanelIdentifier = tester
+          .getSemantics(find.text('Panel'))
+          .getSemanticsData()
+          .identifier;
+      expect(initialPanelIdentifier, isNotEmpty);
+      expect(expandedTrigger.controlsNodes, {initialPanelIdentifier});
+
+      await tester.tap(find.text('Trigger'));
+      await tester.pump();
+
+      expect(
+        tester
+            .getSemantics(find.text('Trigger'))
+            .getSemanticsData()
+            .controlsNodes,
+        isNull,
+      );
+      expect(find.text('Panel'), findsNothing);
+
+      await tester.tap(find.text('Trigger'));
+      await tester.pump();
+
+      final reopenedPanelIdentifier = tester
+          .getSemantics(find.text('Panel'))
+          .getSemanticsData()
+          .identifier;
+      expect(reopenedPanelIdentifier, initialPanelIdentifier);
+      expect(
+        tester
+            .getSemantics(find.text('Trigger'))
+            .getSemanticsData()
+            .controlsNodes,
+        {reopenedPanelIdentifier},
+      );
+      handle.dispose();
+    });
+
+    testWidgets('uses unique panel identifiers for multiple disclosures', (
+      tester,
+    ) async {
+      final handle = tester.ensureSemantics();
+      await tester.pumpWidget(
+        buildApp(
+          const Column(
+            children: [
+              NakedDisclosure(
+                defaultExpanded: true,
+                child: Text('First trigger'),
+                panel: Text('First panel'),
+              ),
+              NakedDisclosure(
+                defaultExpanded: true,
+                child: Text('Second trigger'),
+                panel: Text('Second panel'),
+              ),
+            ],
+          ),
+        ),
+      );
+
+      final firstPanelIdentifier = tester
+          .getSemantics(find.text('First panel'))
+          .getSemanticsData()
+          .identifier;
+      final secondPanelIdentifier = tester
+          .getSemantics(find.text('Second panel'))
+          .getSemanticsData()
+          .identifier;
+      expect(firstPanelIdentifier, isNotEmpty);
+      expect(secondPanelIdentifier, isNotEmpty);
+      expect(firstPanelIdentifier, isNot(secondPanelIdentifier));
+      expect(
+        tester
+            .getSemantics(find.text('First trigger'))
+            .getSemanticsData()
+            .controlsNodes,
+        {firstPanelIdentifier},
+      );
+      expect(
+        tester
+            .getSemantics(find.text('Second trigger'))
+            .getSemanticsData()
+            .controlsNodes,
+        {secondPanelIdentifier},
+      );
+      handle.dispose();
+    });
+
     testWidgets('exposes one named button with enabled and expanded flags', (
       tester,
     ) async {
