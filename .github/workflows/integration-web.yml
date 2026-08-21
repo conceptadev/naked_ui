@@ -68,12 +68,23 @@ jobs:
             --browser-dimension=800x600@1 \
             --chrome-binary="${{ steps.chrome.outputs.chrome-path }}" \
             2>&1 | tee build/web-integration.log
+          flutter drive \
+            --driver=test_driver/integration_test_behavior.dart \
+            --target=integration_test/web_disclosure_semantics.dart \
+            -d web-server \
+            --browser-name=chrome \
+            --browser-dimension=800x600@1 \
+            --chrome-binary="${{ steps.chrome.outputs.chrome-path }}" \
+            2>&1 | tee build/web-semantics-integration.log
 
       - name: Verify web integration evidence
         run: |
           log=packages/example/build/web-integration.log
           grep -F "All tests passed." "$log"
-          if grep -Eq 'TimeoutException|Some tests failed\.| \[E\]' "$log"; then
+          semantics_log=packages/example/build/web-semantics-integration.log
+          grep -F "All tests passed." "$semantics_log"
+          if grep -Eq 'TimeoutException|Some tests failed\.| \[E\]' \
+            "$log" "$semantics_log"; then
             echo "The in-app test runner reported failures." >&2
             exit 1
           fi
@@ -85,6 +96,7 @@ jobs:
           name: integration-web-${{ github.sha }}
           path: |
             packages/example/build/web-integration.log
+            packages/example/build/web-semantics-integration.log
             packages/example/build/integration_response_data.json
           if-no-files-found: warn
           retention-days: 14

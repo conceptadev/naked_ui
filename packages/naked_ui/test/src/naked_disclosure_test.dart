@@ -231,6 +231,40 @@ void main() {
       semantics.dispose();
     });
 
+    testWidgets('semantics refresh preserves stateful trigger identity', (
+      tester,
+    ) async {
+      var initialized = 0;
+      var disposed = 0;
+      await tester.pumpMaterialWidget(
+        NakedDisclosure(
+          child: _TriggerLifecycleProbe(
+            onInitialized: () => initialized += 1,
+            onDisposed: () => disposed += 1,
+          ),
+          panel: const Text('Panel'),
+        ),
+      );
+
+      tester
+          .state<_TriggerLifecycleProbeState>(
+            find.byType(_TriggerLifecycleProbe),
+          )
+          .increment();
+      await tester.pump();
+      expect(find.text('Trigger 1'), findsOneWidget);
+
+      await tester.tap(find.text('Trigger 1'));
+      await tester.pump();
+      await tester.tap(find.text('Trigger 1'));
+      await tester.pump();
+      await tester.pump();
+
+      expect(find.text('Trigger 1'), findsOneWidget);
+      expect(initialized, 1);
+      expect(disposed, 0);
+    });
+
     testWidgets('keyboard press feedback lasts 100ms', (tester) async {
       late NakedDisclosureState state;
       final changes = <bool>[];
@@ -812,4 +846,38 @@ class _PanelLifecycleProbeState extends State<_PanelLifecycleProbe> {
       child: Text('Panel $_value'),
     );
   }
+}
+
+class _TriggerLifecycleProbe extends StatefulWidget {
+  const _TriggerLifecycleProbe({
+    required this.onInitialized,
+    required this.onDisposed,
+  });
+
+  final VoidCallback onInitialized;
+  final VoidCallback onDisposed;
+
+  @override
+  State<_TriggerLifecycleProbe> createState() => _TriggerLifecycleProbeState();
+}
+
+class _TriggerLifecycleProbeState extends State<_TriggerLifecycleProbe> {
+  var _value = 0;
+
+  void increment() => setState(() => _value += 1);
+
+  @override
+  void initState() {
+    super.initState();
+    widget.onInitialized();
+  }
+
+  @override
+  void dispose() {
+    widget.onDisposed();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => Text('Trigger $_value');
 }
