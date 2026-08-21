@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/widgets.dart';
 
 import 'mixins/naked_mixins.dart';
@@ -182,7 +183,7 @@ class _NakedDisclosureState extends State<NakedDisclosure>
 
   Timer? _keyboardPressTimer;
   late String _panelSemanticsIdentifier = _newPanelSemanticsIdentifier();
-  final GlobalKey _triggerSubtreeKey = GlobalKey();
+  final GlobalKey? _webTriggerSubtreeKey = kIsWeb ? GlobalKey() : null;
   final FocusNode _panelFocusNode = FocusNode(
     debugLabel: 'NakedDisclosure panel',
   );
@@ -191,7 +192,7 @@ class _NakedDisclosureState extends State<NakedDisclosure>
   late bool _uncontrolledExpanded;
   late bool _panelMounted;
   late bool _panelSemanticsReady;
-  int _triggerSemanticsGeneration = 0;
+  int _webTriggerSemanticsGeneration = 0;
   bool _animationsDisabled = false;
   int _transitionGeneration = 0;
 
@@ -323,13 +324,18 @@ class _NakedDisclosureState extends State<NakedDisclosure>
   }
 
   void _refreshPanelSemanticsRelationship() {
+    if (!kIsWeb) {
+      _panelSemanticsReady = _isExpanded;
+      return;
+    }
+
     _panelSemanticsReady = false;
     if (!_isExpanded) return;
     _panelSemanticsIdentifier = _newPanelSemanticsIdentifier();
-    _schedulePanelSemanticsRelationship();
+    _scheduleWebPanelSemanticsRelationship();
   }
 
-  void _schedulePanelSemanticsRelationship() {
+  void _scheduleWebPanelSemanticsRelationship() {
     // Flutter web resolves controlsNodes to a DOM node ID when the semantics
     // update arrives, so wait until the remounted panel has registered itself.
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -337,7 +343,7 @@ class _NakedDisclosureState extends State<NakedDisclosure>
       setState(() {
         // Recreate the trigger semantics boundary because Flutter web does
         // not re-resolve controlsNodes there after its target remounts.
-        _triggerSemanticsGeneration += 1;
+        _webTriggerSemanticsGeneration += 1;
         _panelSemanticsReady = true;
       });
     });
@@ -471,7 +477,7 @@ class _NakedDisclosureState extends State<NakedDisclosure>
           );
 
           final focusableTrigger = NakedFocusableDetector(
-            key: _triggerSubtreeKey,
+            key: _webTriggerSubtreeKey,
             enabled: _isInteractive,
             autofocus: widget.autofocus,
             onFocusChange: (focused) =>
@@ -490,7 +496,7 @@ class _NakedDisclosureState extends State<NakedDisclosure>
           );
 
           final semanticTrigger = Semantics(
-            key: ValueKey(_triggerSemanticsGeneration),
+            key: kIsWeb ? ValueKey(_webTriggerSemanticsGeneration) : null,
             container: true,
             enabled: _isInteractive,
             button: true,

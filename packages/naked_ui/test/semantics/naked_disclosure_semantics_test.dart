@@ -1,5 +1,6 @@
 import 'dart:ui' show Tristate;
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -46,93 +47,81 @@ void main() {
   );
 
   group('NakedDisclosure semantics', () {
-    testWidgets('controls each remounted panel only after it is registered', (
-      tester,
-    ) async {
-      final handle = tester.ensureSemantics();
-      await tester.pumpWidget(
-        buildApp(
-          const NakedDisclosure(
-            defaultExpanded: true,
-            child: Text('Trigger'),
-            panel: Text('Panel'),
+    testWidgets(
+      'keeps native semantics identity stable across panel remounts',
+      (tester) async {
+        final handle = tester.ensureSemantics();
+        await tester.pumpWidget(
+          buildApp(
+            const NakedDisclosure(
+              defaultExpanded: true,
+              child: Text('Trigger'),
+              panel: Text('Panel'),
+            ),
           ),
-        ),
-      );
+        );
 
-      final expandedTrigger = tester.getSemantics(find.text('Trigger'));
-      final initialPanelIdentifier = _controlledIdentifier(expandedTrigger);
-      final initialPanel = _nodeWithIdentifier(
-        tester.getSemantics(find.byType(Scaffold)),
-        initialPanelIdentifier,
-      );
-      expect(initialPanelIdentifier, isNotEmpty);
-      expect(initialPanel.id, isNot(expandedTrigger.id));
-      expect(_subtreeContainsLabel(initialPanel, 'Panel'), isTrue);
+        final expandedTrigger = tester.getSemantics(find.text('Trigger'));
+        final initialTriggerId = expandedTrigger.id;
+        final initialPanelIdentifier = _controlledIdentifier(expandedTrigger);
+        final initialPanel = _nodeWithIdentifier(
+          tester.getSemantics(find.byType(Scaffold)),
+          initialPanelIdentifier,
+        );
+        expect(initialPanelIdentifier, isNotEmpty);
+        expect(initialPanel.id, isNot(expandedTrigger.id));
+        expect(_subtreeContainsLabel(initialPanel, 'Panel'), isTrue);
 
-      await tester.tap(find.text('Trigger'));
-      await tester.pump();
+        await tester.tap(find.text('Trigger'));
+        await tester.pump();
 
-      expect(
-        tester
-            .getSemantics(find.text('Trigger'))
-            .getSemanticsData()
-            .controlsNodes,
-        isNull,
-      );
-      expect(find.text('Panel'), findsNothing);
+        expect(
+          tester
+              .getSemantics(find.text('Trigger'))
+              .getSemanticsData()
+              .controlsNodes,
+          isNull,
+        );
+        expect(find.text('Panel'), findsNothing);
 
-      await tester.tap(find.text('Trigger'));
-      await tester.pump();
+        await tester.tap(find.text('Trigger'));
+        await tester.pump();
 
-      expect(
-        tester
-            .getSemantics(find.text('Trigger'))
-            .getSemanticsData()
-            .controlsNodes,
-        isNull,
-      );
-      await tester.pump();
+        final reopenedTrigger = tester.getSemantics(find.text('Trigger'));
+        final reopenedPanelIdentifier = _controlledIdentifier(reopenedTrigger);
+        final reopenedPanel = _nodeWithIdentifier(
+          tester.getSemantics(find.byType(Scaffold)),
+          reopenedPanelIdentifier,
+        );
+        expect(reopenedTrigger.id, initialTriggerId);
+        expect(reopenedPanelIdentifier, initialPanelIdentifier);
+        expect(reopenedPanel.id, isNot(reopenedTrigger.id));
+        expect(_subtreeContainsLabel(reopenedPanel, 'Panel'), isTrue);
 
-      final reopenedTrigger = tester.getSemantics(find.text('Trigger'));
-      final reopenedPanelIdentifier = _controlledIdentifier(reopenedTrigger);
-      final reopenedPanel = _nodeWithIdentifier(
-        tester.getSemantics(find.byType(Scaffold)),
-        reopenedPanelIdentifier,
-      );
-      expect(reopenedPanelIdentifier, isNot(initialPanelIdentifier));
-      expect(reopenedPanel.id, isNot(reopenedTrigger.id));
-      expect(_subtreeContainsLabel(reopenedPanel, 'Panel'), isTrue);
+        await tester.tap(find.text('Trigger'));
+        await tester.pump();
+        await tester.tap(find.text('Trigger'));
+        await tester.pump();
 
-      await tester.tap(find.text('Trigger'));
-      await tester.pump();
-      await tester.tap(find.text('Trigger'));
-      await tester.pump();
-      expect(
-        tester
-            .getSemantics(find.text('Trigger'))
-            .getSemanticsData()
-            .controlsNodes,
-        isNull,
-      );
-      await tester.pump();
-
-      final secondReopenedTrigger = tester.getSemantics(find.text('Trigger'));
-      final secondReopenedIdentifier = _controlledIdentifier(
-        secondReopenedTrigger,
-      );
-      final secondReopenedPanel = _nodeWithIdentifier(
-        tester.getSemantics(find.byType(Scaffold)),
-        secondReopenedIdentifier,
-      );
-      expect(secondReopenedIdentifier, isNot(reopenedPanelIdentifier));
-      expect(secondReopenedPanel.id, isNot(secondReopenedTrigger.id));
-      expect(_subtreeContainsLabel(secondReopenedPanel, 'Panel'), isTrue);
-      handle.dispose();
-    });
+        final secondReopenedTrigger = tester.getSemantics(find.text('Trigger'));
+        final secondReopenedIdentifier = _controlledIdentifier(
+          secondReopenedTrigger,
+        );
+        final secondReopenedPanel = _nodeWithIdentifier(
+          tester.getSemantics(find.byType(Scaffold)),
+          secondReopenedIdentifier,
+        );
+        expect(secondReopenedTrigger.id, initialTriggerId);
+        expect(secondReopenedIdentifier, initialPanelIdentifier);
+        expect(secondReopenedPanel.id, isNot(secondReopenedTrigger.id));
+        expect(_subtreeContainsLabel(secondReopenedPanel, 'Panel'), isTrue);
+        handle.dispose();
+      },
+      skip: kIsWeb,
+    );
 
     testWidgets(
-      'defers and refreshes a controlled relationship when its target remounts',
+      'keeps controlled native semantics identity stable after a remount',
       (tester) async {
         final handle = tester.ensureSemantics();
         var expanded = true;
@@ -153,9 +142,11 @@ void main() {
           ),
         );
 
-        final initialIdentifier = _controlledIdentifier(
-          tester.getSemantics(find.text('Controlled trigger')),
+        final initialTrigger = tester.getSemantics(
+          find.text('Controlled trigger'),
         );
+        final initialTriggerId = initialTrigger.id;
+        final initialIdentifier = _controlledIdentifier(initialTrigger);
 
         rebuild(() => expanded = false);
         await tester.pump();
@@ -169,19 +160,13 @@ void main() {
 
         rebuild(() => expanded = true);
         await tester.pump();
-        expect(
-          tester
-              .getSemantics(find.text('Controlled trigger'))
-              .getSemanticsData()
-              .controlsNodes,
-          isNull,
+        final reopenedTrigger = tester.getSemantics(
+          find.text('Controlled trigger'),
         );
-        await tester.pump();
-        final reopenedIdentifier = _controlledIdentifier(
-          tester.getSemantics(find.text('Controlled trigger')),
-        );
+        final reopenedIdentifier = _controlledIdentifier(reopenedTrigger);
 
-        expect(reopenedIdentifier, isNot(initialIdentifier));
+        expect(reopenedTrigger.id, initialTriggerId);
+        expect(reopenedIdentifier, initialIdentifier);
         final reopenedPanel = _nodeWithIdentifier(
           tester.getSemantics(find.byType(Scaffold)),
           reopenedIdentifier,
@@ -192,6 +177,7 @@ void main() {
         );
         handle.dispose();
       },
+      skip: kIsWeb,
     );
 
     testWidgets('uses unique panel identifiers for multiple disclosures', (
