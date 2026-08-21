@@ -1,3 +1,12 @@
+## 1.0.0-beta.14
+
+### Fixes
+
+- Link each `NakedDisclosure` trigger to its controlled panel in the semantics
+  tree. Web relationships now resolve to the current panel DOM node after
+  repeated remounts, while native trigger identity and the panel identifier
+  remain stable.
+
 ## 1.0.0-beta.13
 
 ### Features
