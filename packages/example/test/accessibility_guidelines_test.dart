@@ -1,5 +1,6 @@
 import 'package:example/api/naked_button.0.dart' as button_example;
 import 'package:example/api/naked_dialog.0.dart' as dialog_example;
+import 'package:example/api/naked_toast.0.dart' as toast_example;
 import 'package:example/api/naked_toggle.0.dart' as toggle_example;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -37,6 +38,33 @@ void main() {
         ),
       ),
     );
+    await tester.pumpAndSettle();
+
+    await tester.expectMeetsAccessibilityGuidelines();
+  });
+
+  testWidgets('canonical toast stack meets accessibility guidelines', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: SizedBox.expand(
+            child: Align(
+              alignment: AlignmentDirectional.topStart,
+              child: Padding(
+                padding: EdgeInsets.all(24),
+                child: toast_example.ToastExample(),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    for (final id in ['saved', 'archived', 'failed']) {
+      await tester.tap(find.byKey(ValueKey('toast.show.$id')));
+      await tester.pump();
+    }
     await tester.pumpAndSettle();
 
     await tester.expectMeetsAccessibilityGuidelines();

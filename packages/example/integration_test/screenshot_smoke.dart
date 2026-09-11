@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:example/api/naked_dialog.0.dart' as dialog_example;
+import 'package:example/api/naked_toast.0.dart' as toast_example;
 import 'package:example/api/naked_toggle.0.dart' as toggle_example;
 import 'package:example/src/testing/screenshot_evidence.dart';
 import 'package:flutter/material.dart';
@@ -70,6 +71,39 @@ Widget _toggleGroupScreenshotApp({
       ),
     ),
   );
+}
+
+Widget _toastScreenshotApp() {
+  return const MaterialApp(
+    debugShowCheckedModeBanner: false,
+    home: Scaffold(
+      backgroundColor: Color(0xFFF7F7F7),
+      // Triggers sit at the top start so the bottom-end stack never covers
+      // them.
+      body: SizedBox.expand(
+        child: Align(
+          alignment: AlignmentDirectional.topStart,
+          child: Padding(
+            padding: EdgeInsets.all(24),
+            child: toast_example.ToastExample(duration: Duration(minutes: 1)),
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
+Future<void> _showToasts(WidgetTester tester, List<String> ids) async {
+  for (final id in ids) {
+    await tester.tap(find.byKey(ValueKey('toast.show.$id')));
+    await tester.pump();
+  }
+  await tester.pumpUntil(
+    () =>
+        find.byKey(ValueKey('toast.surface.${ids.last}')).evaluate().isNotEmpty,
+    timeout: const Duration(seconds: 2),
+  );
+  await tester.pumpAndSettle();
 }
 
 void main() {
@@ -363,6 +397,81 @@ void main() {
         devicePixelRatio: tester.view.devicePixelRatio,
         textScale: 2,
         animationMode: '120ms focus transition, settled',
+      ),
+      surface: screenshotSurface,
+    );
+  });
+
+  testWidgets('toast stacked screenshot evidence', (tester) async {
+    const screenshotSurfaceKey = ValueKey('toast.screenshot.stacked');
+    _configureScreenshotView(tester);
+    await tester.pumpWidget(
+      RepaintBoundary(key: screenshotSurfaceKey, child: _toastScreenshotApp()),
+    );
+    await tester.pump();
+
+    await _showToasts(tester, ['saved', 'archived', 'failed']);
+
+    // The newest toast sits nearest the bottom edge.
+    final saved = tester.getRect(
+      find.byKey(const ValueKey('toast.surface.saved')),
+    );
+    final archived = tester.getRect(
+      find.byKey(const ValueKey('toast.surface.archived')),
+    );
+    final failed = tester.getRect(
+      find.byKey(const ValueKey('toast.surface.failed')),
+    );
+    expect(archived.top, greaterThan(saved.bottom));
+    expect(failed.top, greaterThan(archived.bottom));
+
+    final screenshotSurface = find.byKey(screenshotSurfaceKey);
+    final logicalSize = tester.getSize(screenshotSurface);
+    await tester.captureEvidenceScreenshot(
+      binding,
+      ScreenshotEvidence(
+        component: 'toast',
+        scenario: 'stacked',
+        surface: '${logicalSize.width}x${logicalSize.height} logical pixels',
+        devicePixelRatio: tester.view.devicePixelRatio,
+        animationMode: '180ms entrance, settled',
+      ),
+      surface: screenshotSurface,
+    );
+  });
+
+  testWidgets('toast action focus screenshot evidence', (tester) async {
+    const screenshotSurfaceKey = ValueKey('toast.screenshot.action-focus');
+    _configureScreenshotView(tester);
+    final previousStrategy = FocusManager.instance.highlightStrategy;
+    FocusManager.instance.highlightStrategy =
+        FocusHighlightStrategy.alwaysTraditional;
+    addTearDown(
+      () => FocusManager.instance.highlightStrategy = previousStrategy,
+    );
+    await tester.pumpWidget(
+      RepaintBoundary(key: screenshotSurfaceKey, child: _toastScreenshotApp()),
+    );
+    await tester.pump();
+
+    await _showToasts(tester, ['archived']);
+
+    // Showing a toast never moves focus; move it into the toast explicitly.
+    final undoFocus = Focus.of(tester.element(find.text('Undo')));
+    undoFocus.requestFocus();
+    await tester.pumpAndSettle();
+    expect(undoFocus.hasPrimaryFocus, isTrue);
+
+    final screenshotSurface = find.byKey(screenshotSurfaceKey);
+    final logicalSize = tester.getSize(screenshotSurface);
+    await tester.captureEvidenceScreenshot(
+      binding,
+      ScreenshotEvidence(
+        component: 'toast',
+        scenario: 'action_focus',
+        surface: '${logicalSize.width}x${logicalSize.height} logical pixels',
+        devicePixelRatio: tester.view.devicePixelRatio,
+        animationMode: '180ms entrance, settled',
       ),
       surface: screenshotSurface,
     );

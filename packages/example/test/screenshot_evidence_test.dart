@@ -82,4 +82,23 @@ void main() {
     );
     expect(verticalDisabled.manifestEntryFor('android')['textScale'], 2.0);
   });
+
+  test('toast evidence uses required native artifact names', () {
+    final stacked = ScreenshotEvidence(component: 'toast', scenario: 'stacked');
+    expect(
+      stacked.artifactNameFor('macos'),
+      'toast__stacked__macos__reference.png',
+    );
+    expect(
+      stacked.artifactNameFor('android'),
+      'toast__stacked__android__reference.png',
+    );
+    expect(
+      ScreenshotEvidence(
+        component: 'toast',
+        scenario: 'action_focus',
+      ).artifactNameFor('macos'),
+      'toast__action_focus__macos__reference.png',
+    );
+  });
 }

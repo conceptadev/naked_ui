@@ -106,6 +106,10 @@
           "href": "/widget/textfield"
         },
         {
+          "title": "NakedToastScope",
+          "href": "/widget/toast"
+        },
+        {
           "title": "NakedToggle",
           "href": "/widget/toggle"
         },
