@@ -1,3 +1,12 @@
+## 1.0.0-beta.15
+
+### Features
+
+- Add `NakedToastScope`, `NakedToastController`, and typed toast requests with
+  bounded queues, same-id replacement, lifecycle-aware timers, keyboard
+  dismissal, focus restoration, and status/alert semantics. Presenters retain
+  ownership of visuals and actions.
+
 ## 1.0.0-beta.14
 
 ### Fixes
