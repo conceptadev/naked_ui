@@ -31,6 +31,8 @@ import 'api/naked_slider.0.dart' as slider_example;
 import 'api/naked_tabs.0.dart' as tabs_example;
 // TextField
 import 'api/naked_textfield.0.dart' as textfield_example;
+// Toast
+import 'api/naked_toast.0.dart' as toast_example;
 // Toggle
 import 'api/naked_toggle.0.dart' as toggle_example;
 
@@ -215,6 +217,15 @@ class DemoRegistry {
       sourceUrl:
           'https://github.com/btwld/naked_ui/blob/main/example/lib/api/naked_toggle.0.dart',
       tags: ['toggle'],
+    ),
+    Demo(
+      id: 'toast-basic',
+      title: 'Toast – Stacked notifications',
+      category: 'Toast',
+      builder: (_) => const toast_example.ToastExample(),
+      sourceUrl:
+          'https://github.com/btwld/naked_ui/blob/main/packages/example/lib/api/naked_toast.0.dart',
+      tags: ['toast', 'notification', 'overlay', 'accessibility'],
     ),
     Demo(
       id: 'semantics-playground',

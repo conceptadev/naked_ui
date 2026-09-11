@@ -30,6 +30,7 @@ The complete documentation covers detailed component APIs and examples, guides a
 - NakedDialog — normal and alert dialog semantics + modal focus trap
 - NakedTooltip — controlled, hoverable, collision-aware tooltip
 - NakedPopover — anchored, dismissible overlay with optional separate anchor
+- NakedToastScope — queued, nonmodal toasts with status/alert semantics
 
 ## Basic Usage Pattern
 
