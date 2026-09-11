@@ -1,0 +1,146 @@
+---
+title: NakedToastScope
+description: Headless queued toast notifications with timers, pause rules, focus, and status or alert semantics
+keywords: [flutter, toast, snackbar, notification, headless, overlay]
+---
+
+Headless toast host. `NakedToastScope` owns a queue of nonmodal notifications, their timers, pause rules, keyboard dismissal, and semantics. You render every toast through `toastBuilder`, so the visuals are entirely yours.
+
+## When to use this
+
+- **Confirmations**: "Draft saved", "Link copied"
+- **Undo affordances**: A short-lived toast with an action button
+- **Background results**: An upload or sync that finished while the user kept working
+- **Urgent notices**: Failures that must be announced immediately (`NakedToastPriority.assertive`)
+
+Use a dialog instead when the user must respond before continuing.
+
+## Basic implementation
+
+Place one scope below the app's `Overlay`, in a subtree that stays mounted.
+
+```dart
+import 'package:flutter/widgets.dart';
+import 'package:naked_ui/naked_ui.dart';
+
+class Message {
+  const Message(this.text, {this.actionLabel, this.onAction});
+
+  final String text;
+  final String? actionLabel;
+  final VoidCallback? onAction;
+}
+
+class App extends StatelessWidget {
+  const App({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return WidgetsApp(
+      color: const Color(0xFF000000),
+      builder: (context, _) => Overlay.wrap(
+        child: NakedToastScope<Message>(
+          toastBuilder: (context, toast, animation) => FadeTransition(
+            opacity: animation,
+            child: Container(
+              width: 320,
+              padding: const EdgeInsets.all(12),
+              color: const Color(0xFF222222),
+              child: Row(
+                children: [
+                  // The scope announces semanticLabel; hide the repeated text.
+                  Expanded(
+                    child: ExcludeSemantics(child: Text(toast.data.text)),
+                  ),
+                  if (toast.data.actionLabel case final label?)
+                    NakedButton(
+                      onPressed: () {
+                        toast.data.onAction?.call();
+                        toast.dismiss(NakedToastDismissReason.action);
+                      },
+                      child: Text(label),
+                    ),
+                ],
+              ),
+            ),
+          ),
+          child: const Home(),
+        ),
+      ),
+    );
+  }
+}
+
+// From any event callback below the scope:
+final handle = NakedToastScope.of<Message>(context).show(
+  const NakedToastRequest(
+    data: Message('Draft saved'),
+    semanticLabel: 'Draft saved',
+  ),
+);
+final reason = await handle.closed;
+```
+
+With `MaterialApp`, put the scope in `home` (or a persistent router shell) so it sits below the Navigator's Overlay.
+
+## API
+
+### `NakedToastScope<T>`
+
+| Parameter | Default | Description |
+| --- | --- | --- |
+| `toastBuilder` | required | `(context, NakedToastState<T> toast, Animation<double> animation)`. Builds each visible toast. |
+| `child` | required | The app content the toasts appear over. |
+| `controller` | `null` | A caller-owned `NakedToastController<T>`. The scope creates and disposes its own when null. |
+| `placement` | `bottomEnd` | One of six `NakedToastPlacement` values. Start and end follow `Directionality`. The newest toast sits nearest the edge. |
+| `maxVisible` | `3` | Toasts on screen at once. |
+| `maxQueued` | `20` | Requests waiting for a slot. When full, the oldest waiting request closes with `queueOverflow`. |
+| `inset` | `EdgeInsetsDirectional.all(24)` | Space from the safe area. The bottom edge also clears the keyboard. |
+| `gap` | `12` | Space between stacked toasts. |
+| `animationStyle` | 180 ms in, 120 ms out | Drives `animation`. Skipped when `MediaQuery.disableAnimationsOf` is true. |
+
+`NakedToastScope.of<T>(context)` and `maybeOf<T>(context)` return the controller without registering a dependency, so they are safe in event callbacks.
+
+### `NakedToastRequest<T>`
+
+| Field | Default | Description |
+| --- | --- | --- |
+| `data` | required | Opaque payload for your presenter. |
+| `semanticLabel` | required | Announced once. Must not be blank. |
+| `id` | `null` | A request with an equal id replaces the visible or queued toast in place and restarts its lifetime. |
+| `duration` | 4 seconds | `null` persists until dismissed and requires `interactive: true`. |
+| `priority` | `polite` | `polite` maps to `SemanticsRole.status`, `assertive` to `SemanticsRole.alert`. |
+| `interactive` | `false` | Set when the presenter renders an action or close control. |
+
+### `NakedToastController<T>`
+
+- `show(request)` returns a `NakedToastHandle`. It throws a `StateError` when the controller is not attached to a mounted scope, and a `FlutterError` when called during build.
+- `dismiss(id, [reason])` returns whether a toast was dismissed.
+- `clear()` dismisses everything with `programmatic`.
+- `visibleCount`, `pendingCount`, `isAttached`.
+
+### `NakedToastHandle`
+
+- `id`, `closed` (a `Future<NakedToastDismissReason>` that completes exactly once), `isClosed`, `dismiss([reason])`.
+- Dismiss reasons: `timeout`, `action`, `close`, `programmatic`, `replaced`, `queueOverflow`, `scopeDisposed`.
+
+### `NakedToastState<T>`
+
+Handed to `toastBuilder` and available through `NakedToastState.of<T>(context)`: `data`, `id`, `priority`, `duration`, `isHovered`, `isFocused`, `isPaused`, `isExiting`, and `dismiss([reason])` (defaults to `close`).
+
+## Behaviour Notes
+
+- **One portal.** All toasts render through a single `OverlayPortal`, so they inherit `Directionality`, `MediaQuery`, and theme state from the scope's position and update live.
+- **Queue.** Requests are admitted first-in, first-out. Waiting requests have no widget, semantics node, or timer; each countdown starts only when its toast becomes visible.
+- **Pausing.** A toast's countdown stops while it is hovered, while focus is inside it, and while the app is not resumed. Resuming restarts the full duration.
+- **Accessible navigation.** When `MediaQuery.accessibleNavigationOf` is true, interactive toasts never auto-dismiss.
+- **Focus.** Showing a toast never moves focus. Escape dismisses the toast that contains focus. If a focused toast is dismissed, focus returns to the node that was focused when it appeared.
+- **Pointer input.** Only toast surfaces receive hits; the rest of the region passes input through to the app.
+- **Exit transition.** `closed` completes at dismissal. The toast then plays its exit transition without pointer input, focus, or semantics.
+
+## Semantics
+
+Each visible toast is one node with `SemanticsRole.status` or `SemanticsRole.alert` and the request's `semanticLabel`. It never sets `liveRegion`, which Flutter rejects on these roles. In your presenter:
+
+- Wrap visual text that repeats `semanticLabel` in `ExcludeSemantics` so it is announced once.
+- Keep action and close controls as their own button nodes; do not merge them into the message.

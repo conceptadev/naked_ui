@@ -11,5 +11,6 @@ export 'naked_select.dart';
 export 'naked_slider.dart';
 export 'naked_tabs.dart';
 export 'naked_textfield.dart';
+export 'naked_toast.dart';
 export 'naked_toggle.dart';
 export 'naked_tooltip.dart';

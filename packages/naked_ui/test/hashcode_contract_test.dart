@@ -172,6 +172,20 @@ void main() {
           canExpand: false,
         ),
       ),
+      _ContractCase(
+        description: 'NakedToastState',
+        orderedStates: [WidgetState.hovered, WidgetState.focused],
+        create: (states) => NakedToastState<String>(
+          states: states,
+          id: 'toast',
+          data: 'Saved',
+          priority: NakedToastPriority.polite,
+          duration: const Duration(seconds: 4),
+          isPaused: true,
+          isExiting: false,
+          onDismiss: (_) {},
+        ),
+      ),
     ];
 
     for (final c in cases) {
