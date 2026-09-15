@@ -1,5 +1,14 @@
 # naked_ui
 
+> [!IMPORTANT]
+> **This repository has moved.** `naked_ui` now lives in the Remix monorepo at
+> [conceptadev/remix/tree/main/packages/naked_ui](https://github.com/conceptadev/remix/tree/main/packages/naked_ui),
+> where development continues as of `1.0.0`.
+>
+> - **New issues and pull requests:** please open them in
+>   [conceptadev/remix](https://github.com/conceptadev/remix/issues/new/choose) instead of here.
+> - **This repository is read-only** and will be archived; it remains available for history reference only.
+
 A Flutter UI library for headless widgets. No styling, just behavior. Build custom UIs with full semantics and observable states like hovered, focused, pressed, dragged, and others.
 
 ## Features
